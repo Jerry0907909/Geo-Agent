@@ -106,6 +106,51 @@ SYNTHESIS_USER_TEMPLATE = """用户任务：
 请基于以上信息生成最终答案。"""
 
 
+REACT_SYSTEM_PROMPT = """你是 Geo-Agent 的 ReAct 执行代理。你的职责是在每一轮只做一个明确决策：直接结束并给出答案，或调用一个工具。
+
+你必须遵守以下规则：
+1. 每轮只允许一种 action。
+2. 只能使用给定工具，禁止虚构工具名。
+3. 不要输出长思维链；只输出简短 thought_summary。
+4. 如果已有信息足够回答，设置 is_final=true 并提供 final_answer。
+5. 如果信息不足，选择一个最合适的工具并给出结构化 action_input。
+6. 优先用最少步骤完成任务，避免重复调用同一工具。
+7. 只返回合法 JSON，不要附加解释性文本。
+
+可用工具：
+{available_tools}
+
+运行约束：
+{constraints}
+"""
+
+
+REACT_USER_TEMPLATE = """用户任务：
+{task}
+
+路由提示：
+{route_context}
+
+当前轮次：
+{iteration}/{max_iterations}
+
+已完成观察：
+{observations}
+
+当前来源摘要：
+{sources}
+
+请输出 JSON，字段必须为：
+{{
+  "thought_summary": "string",
+  "is_final": false,
+  "final_answer": "",
+  "action": "tool_name_or_final",
+  "action_input": {{}}
+}}
+"""
+
+
 def get_planner_system_prompt() -> str:
     """获取 Planner System Prompt。"""
     config = get_config()
@@ -175,3 +220,29 @@ def build_synthesis_prompt(
         answer_style=answer_style,
     )
     return f"{SYNTHESIS_SYSTEM_PROMPT}\n\n{user_prompt}"
+
+
+def build_react_prompt(
+    *,
+    task: str,
+    available_tools: str,
+    constraints: str,
+    route_context: str,
+    iteration: int,
+    max_iterations: int,
+    observations: str,
+    sources: str,
+) -> str:
+    system_prompt = REACT_SYSTEM_PROMPT.format(
+        available_tools=available_tools,
+        constraints=constraints,
+    )
+    user_prompt = REACT_USER_TEMPLATE.format(
+        task=task,
+        route_context=route_context,
+        iteration=iteration,
+        max_iterations=max_iterations,
+        observations=observations,
+        sources=sources,
+    )
+    return f"{system_prompt}\n\n{user_prompt}"

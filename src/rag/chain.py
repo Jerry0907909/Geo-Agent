@@ -7,6 +7,7 @@ from src.core.document_loader import DocumentLoader, create_document_loader
 from src.core.text_splitter import TextSplitter, create_text_splitter
 from src.database.chroma_manager import ChromaManager, create_chroma_manager
 from src.rag.retriever import RAGResult, RAGRetriever, create_rag_retriever
+from src.rag.unified_retrieval import RetrievalMode, UnifiedRetrievalService, create_unified_retrieval_service
 
 
 @dataclass
@@ -29,11 +30,13 @@ class RAGChain:
         self,
         retriever: RAGRetriever,
         vector_store: ChromaManager,
+        retrieval_service: Optional[UnifiedRetrievalService] = None,
         document_loader: Optional[DocumentLoader] = None,
         text_splitter: Optional[TextSplitter] = None,
     ) -> None:
         self.retriever = retriever
         self.vector_store = vector_store
+        self.retrieval_service = retrieval_service or create_unified_retrieval_service()
         self.document_loader = document_loader or create_document_loader()
         self.text_splitter = text_splitter or create_text_splitter()
 
@@ -93,9 +96,26 @@ class RAGChain:
             num_chunks=len(chunks),
         )
 
-    def query(self, question: str, top_k: Optional[int] = None) -> RAGResult:
+    def query(
+        self,
+        question: str,
+        top_k: Optional[int] = None,
+        retrieval_mode: RetrievalMode = "local",
+        min_relevance_score: float = 0.0,
+    ) -> RAGResult:
         """执行一次完整的 RAG 查询"""
-        return self.retriever.run(question=question, top_k=top_k)
+        answer, retrieval = self.retrieval_service.answer(
+            query=question,
+            top_k=int(top_k or self.retriever.default_top_k),
+            retrieval_mode=retrieval_mode,
+            min_relevance_score=min_relevance_score,
+        )
+        return RAGResult(
+            question=question,
+            answer=answer,
+            context_documents=retrieval.documents,
+            sources=retrieval.sources,
+        )
 
 
 def create_rag_chain() -> RAGChain:
@@ -106,4 +126,5 @@ def create_rag_chain() -> RAGChain:
     return RAGChain(
         retriever=retriever,
         vector_store=vector_store,
+        retrieval_service=create_unified_retrieval_service(),
     )

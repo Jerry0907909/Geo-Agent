@@ -14,11 +14,10 @@ import {
   type ChatMode,
 } from "@/services/api"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Send, BookOpen, MessageCircle, Search, Sparkles, ChevronRight, ChevronDown, PanelRightClose, PanelRightOpen, Globe, Copy, Check, X, ThumbsUp, ThumbsDown, RotateCcw, ArrowRight, Square, Route, ListTree, FileText } from "lucide-react"
+import { Loader2, Send, BookOpen, MessageCircle, Search, Sparkles, ChevronRight, ChevronDown, PanelRightClose, PanelRightOpen, Globe, Copy, Check, X, ThumbsUp, ThumbsDown, RotateCcw, ArrowRight, Square } from "lucide-react"
 import Markdown from "react-markdown"
 import { useChatStore } from "@/store/useChatStore"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 const MODE_CONFIG = {
@@ -76,6 +75,15 @@ const AGENT_STEP_STATUS_LABEL: Record<AgentStepStatus, string> = {
   skipped: '已跳过',
 }
 
+const RETRIEVAL_MODE_LABEL: Record<'local' | 'external' | 'hybrid', string> = {
+  local: '本地知识库',
+  external: '外部网页',
+  hybrid: '混合检索',
+}
+
+const easeOutSoft = [0.22, 1, 0.36, 1] as const
+const layoutSpring = { type: "spring", stiffness: 420, damping: 34, mass: 0.8 } as const
+
 function createEmptyAgentRun(): AgentRunState {
   return {
     status: 'queued',
@@ -132,7 +140,7 @@ export default function ChatPage() {
   const [topK, setTopK] = useState(5)
   const [minRelevanceScore, setMinRelevanceScore] = useState(0.0)
   const [showRagSettings, setShowRagSettings] = useState(false)
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [retrievalMode, setRetrievalMode] = useState<'local' | 'external' | 'hybrid'>('local')
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   
   // 图片上传状态
@@ -153,6 +161,12 @@ export default function ChatPage() {
   
   // 推荐问题状态
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([])
+  const agentWebEnabled = retrievalMode !== 'local'
+  const retrievalModeOptions: Array<{ value: 'local' | 'external' | 'hybrid', label: string, title: string }> = [
+    { value: 'local', label: '本地', title: '仅使用本地知识库' },
+    { value: 'external', label: '外部', title: '仅使用外部网页结果' },
+    { value: 'hybrid', label: '混合', title: '融合本地知识库与外部网页结果' },
+  ]
   
   // 处理消息反馈（点赞/倒赞）
   const handleFeedback = (messageIndex: number, type: FeedbackType) => {
@@ -461,8 +475,9 @@ export default function ChatPage() {
               task: userMsg.content,
               conversation_id: currentConversationId,
               top_k: topK,
-              allow_web_search: webSearchEnabled,
+              allow_web_search: agentWebEnabled,
               return_steps: true,
+              retrieval_mode: retrievalMode,
             },
             undefined,
             abortController.signal
@@ -473,7 +488,8 @@ export default function ChatPage() {
             mode: mode,
             top_k: topK,
             min_relevance_score: minRelevanceScore,
-            web_search: webSearchEnabled,
+            web_search: retrievalMode !== 'local',
+            retrieval_mode: retrievalMode,
             image_base64: imageToSend,
           })
 
@@ -599,6 +615,17 @@ export default function ChatPage() {
               sources: prev?.sources || [],
               error: null,
             }))
+            break
+
+          case 'thought':
+            appendAgentTrace({
+              id: `trace-thought-${event.step_id || Date.now()}`,
+              phase: 'plan',
+              title: event.summary || '正在判断下一步',
+              detail: event.tool_name ? `候选动作：${event.tool_name}` : 'Agent 正在决定下一步动作。',
+              tone: 'neutral',
+            })
+            setStatusMessage(event.summary || '正在判断下一步动作')
             break
 
           case 'step_start':
@@ -807,7 +834,7 @@ export default function ChatPage() {
         setStatusMessage("")
       }
     }
-  }, [input, isLoading, currentConversationId, mode, loadConversations, setCurrentConversationId, selectedImage, imagePreview, topK, minRelevanceScore, webSearchEnabled, navigate, generateFollowUpQuestions, agentRun?.run_id, setSearchParams, appendAgentTrace])
+  }, [input, isLoading, currentConversationId, mode, loadConversations, setCurrentConversationId, selectedImage, imagePreview, topK, minRelevanceScore, retrievalMode, navigate, generateFollowUpQuestions, agentRun?.run_id, setSearchParams, appendAgentTrace])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -867,25 +894,27 @@ export default function ChatPage() {
   const completedAgentSteps = agentRun?.steps.filter((step) => step.status === 'completed').length || 0
   const failedAgentSteps = agentRun?.steps.filter((step) => step.status === 'failed').length || 0
   const shownAgentSteps = agentRun?.steps.slice(-5) || []
+  const documentSources = sources.filter((source) => source.type !== 'web')
+  const webSources = sources.filter((source) => source.type === 'web')
   const isAgentActive = agentRun?.status === 'queued' || agentRun?.status === 'planning' || agentRun?.status === 'running'
-  const contentMaxWidth = mode === 'agent'
-    ? "max-w-[980px] xl:max-w-[1040px] 2xl:max-w-[1080px]"
-    : "max-w-[860px] xl:max-w-[880px] 2xl:max-w-[880px]"
-  const composeMaxWidth = mode === 'agent' ? "max-w-[980px]" : "max-w-[860px]"
-  const proseWidth = mode === 'agent' ? "max-w-[920px]" : "max-w-[860px]"
+  const isAgentWorkspace = mode === 'agent' && !showWelcome
+  const contentMaxWidth = "max-w-[920px] xl:max-w-[980px] 2xl:max-w-[980px]"
+  const composeMaxWidth = "max-w-[920px]"
+  const proseWidth = "max-w-[820px]"
   const currentModeConfig = MODE_CONFIG[mode]
+  const showRetrievalControls = mode === 'rag'
   const markdownComponents = {
-    p: ({ children }: any) => <p className="mb-4 last:mb-0">{children}</p>,
-    ul: ({ children }: any) => <ul className="mb-4 list-disc space-y-1.5 pl-5">{children}</ul>,
-    ol: ({ children }: any) => <ol className="mb-4 list-decimal space-y-1.5 pl-5">{children}</ol>,
-    li: ({ children }: any) => <li className="leading-8">{children}</li>,
+    p: ({ children }: any) => <p className="mb-3 text-[14px] leading-7 last:mb-0">{children}</p>,
+    ul: ({ children }: any) => <ul className="mb-3 list-disc space-y-1 pl-5 text-[14px]">{children}</ul>,
+    ol: ({ children }: any) => <ol className="mb-3 list-decimal space-y-1 pl-5 text-[14px]">{children}</ol>,
+    li: ({ children }: any) => <li className="leading-7">{children}</li>,
     code: ({ inline, children, ...props }: any) => (
       inline ? (
-        <code className="rounded-md bg-muted px-1.5 py-0.5 text-sm text-foreground" {...props}>
+        <code className="rounded-md bg-muted px-1.5 py-0.5 text-[13px] text-foreground" {...props}>
           {children}
         </code>
       ) : (
-        <code className="mb-4 block overflow-x-auto rounded-2xl border border-border bg-card p-4 text-sm text-foreground shadow-sm" {...props}>
+        <code className="mb-3 block overflow-x-auto rounded-2xl border border-border bg-card p-4 text-[13px] text-foreground shadow-sm" {...props}>
           {children}
         </code>
       )
@@ -895,19 +924,46 @@ export default function ChatPage() {
   return (
     <div className="flex h-full w-full overflow-hidden bg-transparent">
       <div className="flex h-full w-full overflow-hidden">
-        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
           <ScrollArea className="flex-1">
-            <div className={cn("mx-auto flex w-full flex-col gap-8 px-4 pb-24 pt-8 md:px-6", contentMaxWidth)}>
+            <div className={cn("mx-auto flex w-full flex-col gap-8 px-5 pb-28 pt-5 md:px-8", isAgentWorkspace ? "max-w-[980px] xl:max-w-[1060px]" : contentMaxWidth)}>
                 {showWelcome && (
-                  <div className={cn("mx-auto flex min-h-[62vh] w-full flex-col items-center justify-center gap-4 py-6 animate-in fade-in duration-300", composeMaxWidth)}>
-                    <div className="text-center">
-                      <div className="inline-flex items-center gap-2 text-[18px] font-semibold tracking-[-0.01em] text-foreground md:text-[20px]">
-                        <currentModeConfig.icon className="h-5 w-5 text-primary" />
-                        <span>{currentModeConfig.label}</span>
-                      </div>
+                  <LayoutGroup>
+                  <motion.div layout transition={layoutSpring} className={cn("mx-auto flex min-h-[52vh] w-full flex-col items-center justify-center gap-4 py-8 animate-in fade-in duration-300", composeMaxWidth)}>
+                    <div className="max-w-[840px] text-center">
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.h1
+                          key={mode}
+                          initial={{ opacity: 0, y: 8, filter: "blur(2px)" }}
+                          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                          exit={{ opacity: 0, y: -6, filter: "blur(2px)" }}
+                          transition={{ duration: 0.22, ease: easeOutSoft }}
+                          className="inline-flex items-center gap-3 text-[clamp(1.95rem,2.6vw,2.85rem)] font-semibold leading-[1.12] tracking-[-0.02em] text-foreground md:whitespace-nowrap"
+                        >
+                          <currentModeConfig.icon className="h-7 w-7 text-primary" />
+                          <span>使用{currentModeConfig.label}开始对话</span>
+                        </motion.h1>
+                      </AnimatePresence>
                     </div>
 
-                    <div className={cn("floating-compose w-full rounded-[26px] px-4 py-3", mode === 'agent' ? "max-w-[840px]" : "max-w-[760px]")}>
+                    <div className="surface-subtle inline-flex rounded-full p-1">
+                      {(Object.entries(MODE_CONFIG) as [ChatMode, typeof MODE_CONFIG.chat][]).map(([key, config]) => {
+                        const Icon = config.icon
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setMode(key)}
+                            className={cn("mode-segment rounded-full px-5", mode === key && "mode-segment-active")}
+                            title={config.description}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            <span>{config.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <motion.div layout transition={layoutSpring} className="floating-compose w-full max-w-[860px] overflow-hidden rounded-[30px] px-4 py-3 dark:bg-[#182233]">
                       <AnimatePresence>
                         {imagePreview && (
                           <motion.div
@@ -933,15 +989,15 @@ export default function ChatPage() {
                         )}
                       </AnimatePresence>
 
-                      <div className="flex items-end gap-2 px-1 py-0.5">
+                      <div className="flex items-end gap-3 px-1 py-1">
                         <textarea
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
                           onKeyDown={handleKeyDown}
                           onPaste={handlePaste}
                           placeholder={selectedImage ? "描述你想了解的内容..." : "给 Geo-Agent 发送消息"}
-                          rows={2}
-                          className="min-h-[62px] flex-1 resize-none bg-transparent border-none text-[16px] leading-7 text-foreground placeholder:text-muted-foreground/75 focus:outline-none"
+                          rows={1}
+                          className="min-h-[56px] flex-1 resize-none bg-transparent border-none px-1 pt-1 text-[16px] leading-7 text-foreground placeholder:text-muted-foreground/72 focus:outline-none"
                           style={{ maxHeight: "180px" }}
                         />
                         <motion.button
@@ -949,50 +1005,53 @@ export default function ChatPage() {
                           disabled={isLoading || (!input.trim() && !selectedImage)}
                           whileHover={{ scale: isLoading || (!input.trim() && !selectedImage) ? 1 : 1.03 }}
                           whileTap={{ scale: isLoading || (!input.trim() && !selectedImage) ? 1 : 0.97 }}
-                          className="mb-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
+                          className="mb-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/55 text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
                         >
                           <Send className="h-4 w-4" />
                         </motion.button>
                       </div>
 
-                      <div className="mt-1 flex items-center justify-between border-t soft-divider px-1.5 pt-1.5">
-                        <div className="flex items-center gap-1.5 overflow-x-auto">
-                          {(Object.entries(MODE_CONFIG) as [ChatMode, typeof MODE_CONFIG.chat][]).map(([key, config]) => {
-                            const Icon = config.icon
-                            return (
-                              <button
-                                key={key}
-                                onClick={() => setMode(key)}
-                                className={cn("deep-chip !rounded-lg !px-2.5 !py-1", mode === key && "deep-chip-active")}
-                                title={config.description}
-                              >
-                                <Icon className="h-3 w-3" />
-                                <span>{config.label}</span>
-                              </button>
-                            )
-                          })}
-                          <button
-                            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                            className={cn("deep-chip !rounded-lg !px-2.5 !py-1", webSearchEnabled && "deep-chip-active")}
-                            title={webSearchEnabled ? '关闭网络搜索' : '启用网络搜索'}
+                      <AnimatePresence initial={false}>
+                        {showRetrievalControls && (
+                          <motion.div
+                            key="welcome-retrieval-controls"
+                            initial={{ opacity: 0, height: 0, y: -6 }}
+                            animate={{ opacity: 1, height: "auto", y: 0 }}
+                            exit={{ opacity: 0, height: 0, y: -6 }}
+                            transition={{ duration: 0.24, ease: easeOutSoft }}
+                            className="overflow-hidden"
                           >
-                            <Globe className="h-3 w-3" />
-                            <span>网络</span>
-                          </button>
-                          {mode === 'rag' && (
-                            <button
-                              onClick={() => setShowRagSettings(!showRagSettings)}
-                              className={cn("deep-chip !rounded-lg !px-2.5 !py-1", showRagSettings && "deep-chip-active")}
-                              title="检索设置"
-                            >
-                              <ChevronRight className={cn("h-3 w-3 transition-transform", showRagSettings && "rotate-90")} />
-                            </button>
-                          )}
-                        </div>
-                        <span className="pl-2 text-[11px] text-muted-foreground">Enter</span>
-                      </div>
-                    </div>
-                  </div>
+                            <div className="mt-2 flex min-h-[38px] items-center justify-between border-t soft-divider px-1.5 pt-2">
+                              <div className="flex min-h-[30px] flex-wrap items-center gap-2">
+                                <div className="surface-subtle inline-flex rounded-full p-1">
+                                  {retrievalModeOptions.map((option) => (
+                                    <button
+                                      key={option.value}
+                                      onClick={() => setRetrievalMode(option.value)}
+                                      className={cn("mode-segment rounded-full px-3", retrievalMode === option.value && "mode-segment-active")}
+                                      title={option.title}
+                                    >
+                                      <Globe className="h-3.5 w-3.5" />
+                                      <span>{option.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={() => setShowRagSettings(!showRagSettings)}
+                                  className={cn("deep-chip !rounded-full", showRagSettings && "deep-chip-active")}
+                                  title="检索设置"
+                                >
+                                  <ChevronRight className={cn("h-3 w-3 transition-transform", showRagSettings && "rotate-90")} />
+                                  <span>检索设置</span>
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  </motion.div>
+                  </LayoutGroup>
                 )}
                 
                 {messages.map((msg, i) => {
@@ -1005,19 +1064,21 @@ export default function ChatPage() {
                       className="group relative animate-in fade-in slide-in-from-bottom-2 duration-200"
                     >
                       {msg.role === "assistant" ? (
-                        <div className="relative pl-2">
+                        <div className="relative px-2 md:px-4">
                           <div className="mb-4 flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                               <Sparkles className="h-4 w-4" />
                             </div>
-                            <p className="text-sm font-semibold text-foreground">Geo-Agent</p>
+                            <div>
+                              <p className="text-[15px] font-semibold text-foreground">Geo-Agent</p>
+                            </div>
                           </div>
 
-                          <div className={cn("prose-refined prose", proseWidth)}>
+                          <div className={cn("assistant-content prose-refined prose prose-sm max-w-none", proseWidth, isAgentWorkspace && "max-w-[760px]")}>
                             {isStreamingMessage ? (
                               <div className="leading-8">
                                 <Markdown
-                                  className={cn("prose-refined prose leading-8", proseWidth)}
+                                  className={cn("prose-refined prose leading-8", proseWidth, isAgentWorkspace && "max-w-[760px]")}
                                   components={markdownComponents}
                                 >
                                   {streamingContent}
@@ -1030,7 +1091,7 @@ export default function ChatPage() {
                               </div>
                             ) : (
                               <Markdown
-                                className={cn("prose-refined prose leading-8", proseWidth)}
+                                className={cn("prose-refined prose leading-8", proseWidth, isAgentWorkspace && "max-w-[760px]")}
                                 components={markdownComponents}
                               >
                                 {msg.content}
@@ -1039,7 +1100,7 @@ export default function ChatPage() {
                           </div>
 
                           {!isWelcomeMessage && !isLoading && (
-                            <div className="mt-5 flex items-center gap-1.5 border-t soft-divider pt-4">
+                            <div className="mt-4 flex items-center gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                               <button
                                 onClick={() => handleCopy(msg.content, i)}
                                 className={cn(
@@ -1092,15 +1153,15 @@ export default function ChatPage() {
                           )}
 
                           {!isLoading && i === messages.length - 1 && followUpQuestions.length > 0 && (
-                            <div className="mt-6 space-y-2">
+                            <div className="mt-7 flex flex-wrap gap-2.5">
                               {followUpQuestions.map((question, qIndex) => (
                                 <button
                                   key={qIndex}
                                   onClick={() => handleFollowUpClick(question)}
-                                  className="group flex w-full items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground transition-all duration-200 hover:border-primary/30 hover:bg-accent/35"
+                                  className="group inline-flex max-w-full items-center gap-2 rounded-full border border-black/5 bg-[#f7f9fc] px-4 py-2.5 text-left text-sm text-foreground transition-all duration-200 hover:border-primary/20 hover:bg-slate-100 dark:border-white/8 dark:bg-[#1a2335] dark:text-slate-100 dark:hover:bg-[#223049]"
                                 >
-                                  <span className="flex-1">{question}</span>
-                                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                                  <span className="line-clamp-1">{question}</span>
+                                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" />
                                 </button>
                               ))}
                             </div>
@@ -1108,12 +1169,12 @@ export default function ChatPage() {
                         </div>
                       ) : (
                         <div className="flex flex-col items-end">
-                          <div className="inline-block max-w-[76%] rounded-xl border border-border bg-muted px-4 py-3 text-foreground">
+                          <div className="inline-block max-w-[74%] rounded-[28px] border border-black/5 bg-[#f3f6fb] px-5 py-3.5 text-foreground dark:border-white/8 dark:bg-[#1c2739] dark:text-slate-100">
                             {msg.metadata?.image && (
                               <img
                                 src={msg.metadata.image}
                                 alt="用户上传的图片"
-                                className="mb-3 max-h-64 max-w-full rounded-2xl border border-border"
+                                className="mb-3 max-h-64 max-w-full rounded-[20px] border border-black/5"
                               />
                             )}
                             <p className="whitespace-pre-wrap break-words text-[15px] leading-7">{msg.content}</p>
@@ -1141,207 +1202,31 @@ export default function ChatPage() {
                     </div>
                   )
                 })}
-                {agentRun && (
-                  <Card className="shell-panel rounded-[24px] border">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1.5">
-                          <CardTitle className="font-display text-[1.05rem]">Agent 执行面板</CardTitle>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            {(agentRun.status === 'planning' || agentRun.status === 'running' || agentRun.status === 'queued') && (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                            )}
-                            <span>{AGENT_STATUS_LABEL[agentRun.status]}</span>
-                            <span>· {completedAgentSteps} 已完成</span>
-                            {failedAgentSteps > 0 && <span>· {failedAgentSteps} 失败</span>}
-                            {agentRun.execution_time && <span>· {agentRun.execution_time.toFixed(2)}s</span>}
-                          </div>
-                        </div>
-                        {(agentRun.status === 'queued' || agentRun.status === 'planning' || agentRun.status === 'running') && (
-                          <button
-                            onClick={handleCancelAgentRun}
-                            className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          >
-                            <Square className="h-3 w-3" />
-                            取消
-                          </button>
-                        )}
+                {isAgentWorkspace && agentRun && isAgentActive && synthesisPreview && (
+                  <div className="px-2 md:px-4">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Sparkles className="h-4 w-4" />
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3.5">
-                      <div className="grid gap-3 xl:grid-cols-[1.1fr_1fr_1.2fr]">
-                        <div className="rounded-2xl border border-border/70 bg-card px-4 py-3.5">
-                          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            <Route className="h-3.5 w-3.5" />
-                            Route
-                          </div>
-                          <div className="text-sm font-medium text-foreground">
-                            {agentRouteInfo?.summary || agentRun.plan_summary || '正在识别任务路径'}
-                          </div>
-                          {agentRouteInfo?.reason && (
-                            <div className="mt-1.5 line-clamp-3 text-xs leading-5 text-muted-foreground">
-                              {agentRouteInfo.reason}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="rounded-2xl border border-border/70 bg-card px-4 py-3.5">
-                          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            <ListTree className="h-3.5 w-3.5" />
-                            Current Step
-                          </div>
-                          <div className="text-sm font-medium text-foreground">
-                            {currentAgentStep?.title || latestAgentStep?.title || statusMessage || AGENT_STATUS_LABEL[agentRun.status]}
-                          </div>
-                          <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                            {currentAgentStep?.goal || latestAgentStep?.goal || statusMessage || '等待规划输出'}
-                          </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-border/70 bg-card px-4 py-3.5">
-                          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            <FileText className="h-3.5 w-3.5" />
-                            Synthesis
-                          </div>
-                          <div className="text-sm font-medium text-foreground">
-                            {synthesisPreview
-                              ? '正在汇总最终回答'
-                              : agentRun.status === 'completed'
-                                ? '已生成最终回答'
-                                : '尚未进入回答汇总'}
-                          </div>
-                          <div className="mt-1.5 line-clamp-4 text-xs leading-5 text-muted-foreground">
-                            {synthesisPreview || '执行阶段完成后会在这里实时显示最终回答的生成过程。'}
-                          </div>
-                        </div>
+                      <div>
+                        <p className="text-[15px] font-semibold text-foreground">Geo-Agent</p>
+                        <p className="text-[12px] text-muted-foreground">Agent 正在生成答案</p>
                       </div>
-
-                      {(agentTrace.length > 0 || shownAgentSteps.length > 0) ? (
-                        <div className="overflow-hidden rounded-2xl border border-border/70 bg-card">
-                          <button
-                            onClick={() => setIsAgentTraceExpanded((prev) => !prev)}
-                            className="flex w-full items-center justify-between border-b soft-divider px-4 py-3 text-left transition-colors hover:bg-accent/30"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div>
-                                <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                  Processing Trace
-                                </div>
-                                <div className="mt-1 text-sm font-medium text-foreground">
-                                  {isAgentActive ? '实时显示任务处理过程' : '任务处理过程已收起，按需展开查看'}
-                                </div>
-                              </div>
-                              <span className="rounded-full border border-border/80 px-2 py-0.5 text-[11px] text-muted-foreground">
-                                {agentTrace.length} 条
-                              </span>
-                            </div>
-                            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isAgentTraceExpanded && "rotate-180")} />
-                          </button>
-
-                          {isAgentTraceExpanded && (
-                            <div className="space-y-1.5 px-3 py-3">
-                              {agentTrace.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className={cn(
-                                    "rounded-2xl border px-3.5 py-3",
-                                    item.tone === 'running' && "border-primary/18 bg-primary/5",
-                                    item.tone === 'success' && "border-emerald-200/70 bg-emerald-50/80 dark:border-emerald-900/60 dark:bg-emerald-950/20",
-                                    item.tone === 'error' && "border-destructive/20 bg-destructive/5",
-                                    (!item.tone || item.tone === 'neutral') && "border-border/70 bg-background/70"
-                                  )}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className={cn(
-                                      "mt-1 h-2.5 w-2.5 rounded-full",
-                                      item.tone === 'running' && "bg-primary",
-                                      item.tone === 'success' && "bg-emerald-500",
-                                      item.tone === 'error' && "bg-destructive",
-                                      (!item.tone || item.tone === 'neutral') && "bg-muted-foreground/45"
-                                    )} />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-medium text-foreground">{item.title}</div>
-                                      {item.detail && (
-                                        <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                                          {item.detail}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {shownAgentSteps.length > 0 && (
-                                <div className="rounded-2xl border border-border/70 bg-background/70 px-3.5 py-3">
-                                  <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                    Step Snapshot
-                                  </div>
-                                  <div className="space-y-2">
-                                    {shownAgentSteps.map((step, index) => (
-                                      <div
-                                        key={step.step_id || index}
-                                        className="rounded-xl border border-border/60 px-3 py-2.5"
-                                      >
-                                        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                                          <div className="font-medium text-foreground">{step.title}</div>
-                                          <div className="text-xs text-muted-foreground">
-                                            {step.tool_name} · {AGENT_STEP_STATUS_LABEL[step.status]}
-                                            {typeof step.latency_ms === 'number' ? ` · ${step.latency_ms}ms` : ''}
-                                          </div>
-                                        </div>
-                                        {(step.goal || step.observation) && (
-                                          <div className="mt-1.5 space-y-1">
-                                            {step.goal && (
-                                              <div className="text-xs leading-5 text-muted-foreground/90">{step.goal}</div>
-                                            )}
-                                            {step.observation && (
-                                              <div className="line-clamp-2 text-xs leading-5 text-muted-foreground">{step.observation}</div>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        isAgentActive && (
-                          <div className="rounded-2xl border border-dashed border-border/80 px-4 py-3 text-xs text-muted-foreground">
-                            暂无处理过程，正在生成执行计划...
-                          </div>
-                        )
-                      )}
-
-                      {agentRun.error && (
-                        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 px-3.5 py-3 text-sm text-destructive">
-                          {agentRun.error.code}: {agentRun.error.message}
-                        </div>
-                      )}
-
-                      {isAgentActive && synthesisPreview && (
-                        <div className="rounded-2xl border border-border/70 bg-card px-4 py-3.5">
-                          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            <FileText className="h-3.5 w-3.5" />
-                            Live Synthesis
-                          </div>
-                          <Markdown className="prose-refined prose max-w-none leading-8">
-                            {synthesisPreview}
-                          </Markdown>
-                          <motion.span
-                            className="ml-1 mt-1 inline-block h-5 w-0.5 bg-primary"
-                            animate={{ opacity: [1, 0] }}
-                            transition={{ duration: 0.8, repeat: Infinity }}
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                    <div className="max-w-[760px]">
+                      <Markdown className="prose-refined prose max-w-none leading-8">
+                        {synthesisPreview}
+                      </Markdown>
+                      <motion.span
+                        className="ml-1 mt-1 inline-block h-5 w-0.5 bg-primary"
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.8, repeat: Infinity }}
+                      />
+                    </div>
+                  </div>
                 )}
                 {isLoading && !streamingContent && mode !== 'agent' && (
-                  <div className="flex items-center gap-2 rounded-full bg-card px-3 py-2 text-sm shadow-sm animate-in fade-in duration-200">
+                  <div className="surface-strong flex items-center gap-2 rounded-full px-3 py-2 text-sm animate-in fade-in duration-200">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     <span className="text-sm text-muted-foreground">
                       {statusMessage || '正在思考...'}
@@ -1353,18 +1238,23 @@ export default function ChatPage() {
             </ScrollArea>
 
             {!showWelcome && (
-            <div className="border-t soft-divider bg-background px-3 pb-4 pt-3">
-              <div className={cn("mx-auto space-y-2.5", composeMaxWidth)}>
-                <AnimatePresence>
+            <div className="bg-transparent px-3 pb-5 pt-3">
+              <motion.div layout transition={layoutSpring} className={cn("mx-auto space-y-2.5", composeMaxWidth)}>
+                <AnimatePresence initial={false}>
                   {mode === 'rag' && showRagSettings && (
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                      className="shell-panel overflow-hidden rounded-xl p-3.5 space-y-3"
+                      initial={{ opacity: 0, height: 0, y: 8 }}
+                      animate={{ opacity: 1, height: 'auto', y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: 8 }}
+                      transition={{ duration: 0.24, ease: easeOutSoft }}
+                      className="shell-panel overflow-hidden rounded-[24px] p-4 space-y-3"
                     >
-                    <div className="mb-2 text-xs font-medium text-muted-foreground">检索设置</div>
+                    <div className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">检索设置</div>
+                    <div className="surface-subtle rounded-[18px] px-3 py-2.5 text-xs text-muted-foreground">
+                      当前检索模式：<span className="font-medium text-foreground">
+                        {RETRIEVAL_MODE_LABEL[retrievalMode]}
+                      </span>
+                    </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <label className="text-muted-foreground">参考来源数量</label>
@@ -1383,7 +1273,7 @@ export default function ChatPage() {
                   )}
                 </AnimatePresence>
                 
-                <div className="floating-compose rounded-xl px-2.5 py-2 transition-all duration-200 hover:border-primary/30">
+                <motion.div layout transition={layoutSpring} className="floating-compose overflow-hidden rounded-[28px] px-3 py-3 transition-colors duration-200 hover:border-primary/30 dark:bg-[#182233]">
                   <AnimatePresence>
                     {imagePreview && (
                       <motion.div
@@ -1409,78 +1299,80 @@ export default function ChatPage() {
                     )}
                   </AnimatePresence>
                   
-                  <div className="flex items-end gap-2 px-1 py-0.5">
-                    <textarea
+                    <div className="flex items-end gap-3 px-2 py-1">
+                      <textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
                       placeholder={selectedImage ? "描述你想了解的内容..." : "给 Geo-Agent 发送消息"}
-                      rows={2}
-                      className="min-h-[42px] flex-1 resize-none bg-transparent border-none text-[15px] leading-6 text-foreground placeholder:text-muted-foreground/85 focus:outline-none"
-                      style={{ maxHeight: '180px' }}
-                    />
+                      rows={1}
+                        className="min-h-[56px] flex-1 resize-none bg-transparent border-none text-[15px] leading-7 text-foreground placeholder:text-muted-foreground/76 focus:outline-none"
+                        style={{ maxHeight: '180px' }}
+                      />
                     <motion.button
                       onClick={() => handleSubmit()}
                       disabled={isLoading || (!input.trim() && !selectedImage)}
                       whileHover={{ scale: isLoading || (!input.trim() && !selectedImage) ? 1 : 1.05 }}
                       whileTap={{ scale: isLoading || (!input.trim() && !selectedImage) ? 1 : 0.95 }}
-                      className="mb-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </motion.button>
-                  </div>
-
-                  <div className="mt-1 flex items-center justify-between border-t soft-divider px-1.5 pt-1.5">
-                    <div className="flex items-center gap-1.5 overflow-x-auto">
-                      {(Object.entries(MODE_CONFIG) as [ChatMode, typeof MODE_CONFIG.chat][]).map(([key, config]) => {
-                        const Icon = config.icon
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => setMode(key)}
-                            className={cn("deep-chip !rounded-lg !px-2.5 !py-1", mode === key && "deep-chip-active")}
-                            title={config.description}
-                          >
-                            <Icon className="h-3 w-3" />
-                            <span>{config.label}</span>
-                          </button>
-                        )
-                      })}
-                      <button
-                        onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                        className={cn("deep-chip !rounded-lg !px-2.5 !py-1", webSearchEnabled && "deep-chip-active")}
-                        title={webSearchEnabled ? '关闭网络搜索' : '启用网络搜索'}
+                        className="mb-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        <Globe className="h-3 w-3" />
-                        <span>网络</span>
-                      </button>
-                      {mode === 'rag' && (
-                        <button
-                          onClick={() => setShowRagSettings(!showRagSettings)}
-                          className={cn("deep-chip !rounded-lg !px-2.5 !py-1", showRagSettings && "deep-chip-active")}
-                          title="检索设置"
-                        >
-                          <ChevronRight className={cn("h-3 w-3 transition-transform", showRagSettings && "rotate-90")} />
-                        </button>
-                      )}
+                        <Send className="h-4 w-4" />
+                      </motion.button>
                     </div>
-                    <span className="pl-2 text-[11px] text-muted-foreground">Enter 发送</span>
-                  </div>
-                </div>
-              </div>
+
+                  <AnimatePresence initial={false}>
+                    {showRetrievalControls && (
+                      <motion.div
+                        key="dock-retrieval-controls"
+                        initial={{ opacity: 0, height: 0, y: -6 }}
+                        animate={{ opacity: 1, height: "auto", y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -6 }}
+                        transition={{ duration: 0.24, ease: easeOutSoft }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-2 flex min-h-[38px] items-center border-t soft-divider px-2 pt-2">
+                          <div className="flex min-h-[30px] items-center gap-2 overflow-x-auto">
+                            <div className="surface-subtle inline-flex rounded-full p-1">
+                              {retrievalModeOptions.map((option) => (
+                                <button
+                                  key={option.value}
+                                  onClick={() => setRetrievalMode(option.value)}
+                                  className={cn("mode-segment rounded-full px-3", retrievalMode === option.value && "mode-segment-active")}
+                                  title={option.title}
+                                >
+                                  <Globe className="h-3.5 w-3.5" />
+                                  <span>{option.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setShowRagSettings(!showRagSettings)}
+                              className={cn("deep-chip !rounded-full", showRagSettings && "deep-chip-active")}
+                              title="检索设置"
+                            >
+                              <ChevronRight className={cn("h-3 w-3 transition-transform", showRagSettings && "rotate-90")} />
+                              <span>检索设置</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </motion.div>
             </div>
             )}
           </div>
 
-          {sources.length > 0 && (
+          {(isAgentWorkspace || sources.length > 0) && (
             <motion.div 
-              initial={{ width: 56 }}
-              animate={{ width: isSourcesOpen ? sourcePanelWidth : 56 }}
+              initial={{ width: isAgentWorkspace ? (isSourcesOpen ? 380 : 56) : 56 }}
+              animate={{ width: isAgentWorkspace ? (isSourcesOpen ? 380 : 56) : isSourcesOpen ? sourcePanelWidth : 56 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="relative m-3 ml-0 hidden flex-col overflow-hidden rounded-xl shell-panel lg:flex"
+              className="relative m-4 ml-0 hidden flex-col overflow-hidden rounded-[24px] shell-panel lg:flex"
             >
-              {isSourcesOpen && (
+              {!isAgentWorkspace && isSourcesOpen && (
                 <div
                   onMouseDown={handleSourceResizeStart}
                   className={cn(
@@ -1490,40 +1382,72 @@ export default function ChatPage() {
                   title="拖拽调整宽度"
                 />
               )}
-              <div className="flex items-center gap-2 border-b soft-divider bg-card px-3 py-2 font-medium">
-                <motion.button
-                  onClick={() => setIsSourcesOpen(!isSourcesOpen)}
-                  className="rounded-lg p-1 transition-colors hover:bg-muted/70"
-                  title={isSourcesOpen ? '收起参考来源' : '展开参考来源'}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <motion.div
-                    animate={{ rotate: isSourcesOpen ? 0 : 180 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {isSourcesOpen ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
-                  </motion.div>
-                </motion.button>
-                <AnimatePresence mode="wait">
-                  {isSourcesOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center gap-2"
+              <div className="surface-subtle flex items-center gap-2 border-b soft-divider px-4 py-3 font-medium">
+                {isAgentWorkspace ? (
+                  <>
+                    <motion.button
+                      onClick={() => setIsSourcesOpen(!isSourcesOpen)}
+                      className="rounded-2xl p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      title={isSourcesOpen ? '收起进度栏' : '展开进度栏'}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.96 }}
                     >
-                      <BookOpen className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-sm">参考来源</span>
-                      <span className="text-xs text-muted-foreground">({sources.length})</span>
-                      <span className="text-[11px] text-muted-foreground">与回答中的 [n] 一一对应</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <motion.div
+                        animate={{ rotate: isSourcesOpen ? 0 : 180 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {isSourcesOpen ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+                      </motion.div>
+                    </motion.button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-foreground">进度</span>
+                    </div>
+                    {isAgentActive && (
+                      <button
+                        onClick={handleCancelAgentRun}
+                        className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5"
+                      >
+                        <Square className="h-3 w-3" />
+                        取消
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <motion.button
+                      onClick={() => setIsSourcesOpen(!isSourcesOpen)}
+                      className="rounded-2xl p-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      title={isSourcesOpen ? '收起参考来源' : '展开参考来源'}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <motion.div
+                        animate={{ rotate: isSourcesOpen ? 0 : 180 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {isSourcesOpen ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+                      </motion.div>
+                    </motion.button>
+                    <AnimatePresence mode="wait">
+                      {isSourcesOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex items-center gap-2"
+                        >
+                          <BookOpen className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-sm text-foreground">参考来源</span>
+                          <span className="text-xs text-muted-foreground">({sources.length})</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
               </div>
               <AnimatePresence>
-                {isSourcesOpen && (
+                {((isAgentWorkspace && isSourcesOpen) || (!isAgentWorkspace && isSourcesOpen)) && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -1532,93 +1456,203 @@ export default function ChatPage() {
                     className="flex-1 overflow-hidden"
                   >
                     <ScrollArea className="h-full">
-                      <motion.div className="divide-y divide-border/80">
-                        {sources.map((source, i) => (
-                          <motion.div
-                            key={i}
-                            variants={{
-                              hidden: { opacity: 0, y: 20 },
-                              visible: { opacity: 1, y: 0 }
-                            }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <div className="px-3 py-1.5 text-xs">
-                                <div
-                                  className="cursor-pointer rounded-lg px-1 py-2 transition-colors hover:bg-accent/35"
-                                  onClick={() => setExpandedSourceIndex(expandedSourceIndex === i ? null : i)}
-                                >
-                                  <div className="flex items-start gap-2.5">
-                                  <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded border border-primary/20 bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                                    [{i + 1}]
-                                  </span>
-                                  <motion.button
-                                    className="mt-0.5"
-                                    onClick={() => setExpandedSourceIndex(expandedSourceIndex === i ? null : i)}
-                                    animate={{ rotate: expandedSourceIndex === i ? 90 : 0 }}
-                                    transition={{ duration: 0.2 }}
+                      <motion.div className="space-y-5 px-4 py-4">
+                        {isAgentWorkspace && (
+                          <div className="space-y-5">
+                            {agentRun ? (
+                              <div className="surface-panel rounded-[22px] px-4 py-4 dark:bg-[#182233]">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                  {isAgentActive && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+                                  <span>{AGENT_STATUS_LABEL[agentRun.status]}</span>
+                                  <span>·</span>
+                                  <span>{completedAgentSteps} 已完成</span>
+                                  {failedAgentSteps > 0 && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{failedAgentSteps} 失败</span>
+                                    </>
+                                  )}
+                                  {agentRun.execution_time && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{agentRun.execution_time.toFixed(2)}s</span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="mt-3 text-[15px] font-medium text-foreground">
+                                  {currentAgentStep?.title || latestAgentStep?.title || agentRouteInfo?.summary || agentRun.plan_summary || '正在识别任务路径'}
+                                </div>
+                                <div className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                                  {currentAgentStep?.goal || latestAgentStep?.goal || agentRouteInfo?.reason || statusMessage || 'Agent 会按需决定下一步动作，并在有足够信息时直接收敛答案。'}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-[22px] border border-dashed border-black/10 px-4 py-4 text-sm text-muted-foreground dark:border-white/10">
+                                提交任务后，执行步骤、状态和结果摘要会显示在这里。
+                              </div>
+                            )}
+
+                            {agentRun && (
+                            <div className="surface-panel rounded-[22px] px-4 py-4 dark:bg-[#182233]">
+                              <button
+                                onClick={() => setIsAgentTraceExpanded((prev) => !prev)}
+                                className="flex w-full items-center justify-between text-left"
+                              >
+                                <div>
+                                  <div className="text-sm font-medium text-foreground">处理过程</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">{agentTrace.length} 条记录</div>
+                                </div>
+                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isAgentTraceExpanded && "rotate-180")} />
+                              </button>
+
+                              {isAgentTraceExpanded && (
+                                <div className="mt-4 space-y-3">
+                                  {agentTrace.map((item) => (
+                                    <div key={item.id} className="flex items-start gap-3">
+                                      <div className={cn(
+                                        "mt-1.5 h-4 w-4 rounded-full border",
+                                        item.tone === 'running' && "border-primary bg-primary/15",
+                                        item.tone === 'success' && "border-emerald-500 bg-emerald-500/12",
+                                        item.tone === 'error' && "border-destructive bg-destructive/12",
+                                        (!item.tone || item.tone === 'neutral') && "border-border bg-transparent"
+                                      )} />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-medium text-foreground">{item.title}</div>
+                                        {item.detail && <div className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</div>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {shownAgentSteps.length > 0 && (
+                                    <div className="border-t soft-divider pt-4">
+                                      <div className="space-y-3">
+                                        {shownAgentSteps.map((step, index) => (
+                                          <div key={step.step_id || index} className="rounded-[18px] bg-black/[0.02] px-3 py-3 dark:bg-white/[0.03]">
+                                            <div className="text-sm font-medium text-foreground">{step.title}</div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                              {step.tool_name} · {AGENT_STEP_STATUS_LABEL[step.status]}
+                                              {typeof step.latency_ms === 'number' ? ` · ${step.latency_ms}ms` : ''}
+                                            </div>
+                                            {step.observation && (
+                                              <div className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">{step.observation}</div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            )}
+
+                            {agentRun?.error && (
+                              <div className="rounded-[22px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                                {agentRun.error.code}: {agentRun.error.message}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isAgentWorkspace && sources.length > 0 && (
+                          <div className="border-t soft-divider pt-1">
+                            <div className="mb-2 flex items-center justify-between">
+                              <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                                参考来源
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{sources.length} 条</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {[{
+                          title: '本地证据',
+                          items: documentSources,
+                        }, {
+                          title: '外部参考',
+                          items: webSources,
+                        }].filter((section) => section.items.length > 0).map((section) => (
+                          <div key={section.title}>
+                            <div className="mb-2 flex items-center justify-between">
+                              <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                                {section.title}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{section.items.length} 条</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {section.items.map((source) => {
+                                const originalIndex = sources.indexOf(source)
+                                const isExpanded = expandedSourceIndex === originalIndex
+                                return (
+                                  <div
+                                    key={`${section.title}-${originalIndex}`}
+                                    className="rounded-[18px] px-2.5 py-2.5 text-xs transition-colors hover:bg-black/[0.025]"
                                   >
-                                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                                  </motion.button>
-                                    <div className="min-w-0 flex-1 overflow-hidden">
-                                      <div className="mb-1.5 flex items-start justify-between gap-2">
+                                    <div
+                                      className="cursor-pointer"
+                                      onClick={() => setExpandedSourceIndex(isExpanded ? null : originalIndex)}
+                                    >
+                                      <div className="flex items-start gap-2.5">
+                                        <span className="mt-0.5 inline-flex min-w-5 items-center justify-center text-[11px] font-medium text-muted-foreground">
+                                          {originalIndex + 1}
+                                        </span>
+                                        <motion.button
+                                          className="mt-1"
+                                          onClick={() => setExpandedSourceIndex(isExpanded ? null : originalIndex)}
+                                          animate={{ rotate: isExpanded ? 90 : 0 }}
+                                          transition={{ duration: 0.2 }}
+                                        >
+                                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                        </motion.button>
                                         <div className="min-w-0 flex-1">
-                                          <p className="break-words text-[13px] font-semibold leading-5 text-foreground" title={source.source}>
-                                            {source.source}
+                                          <div className="flex items-start justify-between gap-2">
+                                            <p className="break-words text-[13px] font-semibold leading-5 text-foreground" title={source.source}>
+                                              {source.source}
+                                            </p>
+                                            {typeof source.relevance_score === 'number' && (
+                                              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                                                {(source.relevance_score * 100).toFixed(1)}%
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                            {source.type === 'web' && <Globe className="h-3 w-3 text-primary" />}
+                                            {source.source_type && (
+                                              <span>
+                                                {{
+                                                  academic: '学术',
+                                                  news: '新闻',
+                                                  official: '官方',
+                                                  general: '网络',
+                                                }[source.source_type] || '网络'}
+                                              </span>
+                                            )}
+                                            {source.source_type && <span>·</span>}
+                                            <span>{source.type === 'web' ? '网页' : '文档'}</span>
+                                          </div>
+                                          <p className="mt-2 text-[12px] leading-5 text-muted-foreground">
+                                            {isExpanded
+                                              ? source.content
+                                              : `${(source.content || '').slice(0, 220)}${(source.content || '').length > 220 ? '...' : ''}`}
                                           </p>
                                         </div>
-                                        {typeof source.relevance_score === 'number' && (
-                                          <span className="shrink-0 rounded border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
-                                            {(source.relevance_score * 100).toFixed(1)}%
-                                          </span>
-                                        )}
                                       </div>
-                                      <div className="mb-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                                      {source.type === 'web' && <Globe className="h-3 w-3 text-primary" />}
-                                      {source.source_type && (
-                                        <span className="rounded bg-muted px-1.5 py-0.5">
-                                          {{
-                                            'academic': '学术',
-                                            'news': '新闻',
-                                            'official': '官方',
-                                            'general': '网络',
-                                          }[source.source_type] || '网络'}
-                                        </span>
-                                      )}
-                                      {typeof source.relevance_score === 'number' && (
-                                        <span className="tabular-nums">
-                                          相关度 {(source.relevance_score * 100).toFixed(1)}%
-                                        </span>
-                                      )}
                                     </div>
-                                    {typeof source.relevance_score === 'number' && (
-                                      <div className="mb-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                                        <div
-                                          className="h-full rounded-full bg-primary/60"
-                                          style={{ width: `${Math.max(4, Math.min(source.relevance_score * 100, 100))}%` }}
-                                        />
-                                      </div>
+                                    {source.url && (
+                                      <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="ml-8 mt-2 inline-flex items-center text-[11px] text-primary hover:text-primary/80"
+                                      >
+                                        查看来源
+                                      </a>
                                     )}
-                                    <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">
-                                      {expandedSourceIndex === i
-                                        ? source.content
-                                        : `${(source.content || '').slice(0, 220)}${(source.content || '').length > 220 ? '...' : ''}`}
-                                    </p>
                                   </div>
-                                </div>
-                                {source.url && (
-                                  <a
-                                    href={source.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="ml-8 mt-1 inline-flex items-center rounded-md border border-border px-2 py-0.5 text-[11px] text-primary hover:bg-primary/10"
-                                  >
-                                    查看来源
-                                  </a>
-                                )}
-                              </div>
+                                )
+                              })}
                             </div>
-                          </motion.div>
+                          </div>
                         ))}
                       </motion.div>
                     </ScrollArea>

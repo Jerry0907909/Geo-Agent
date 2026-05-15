@@ -36,9 +36,28 @@ export interface User {
   username: string
   email: string
   full_name?: string
+  avatar_url?: string
   is_active: boolean
   is_superuser: boolean
   last_login?: string
+  created_at: string
+}
+
+export interface UserPreferences {
+  language: string
+  theme: 'light' | 'dark' | 'system' | string
+  default_model?: string | null
+  max_context_messages: number
+  enable_memory: boolean
+  settings?: Record<string, any> | null
+}
+
+export interface SearchHistoryItem {
+  id: number
+  query: string
+  result_count?: number | null
+  search_type: string
+  response_time?: number | null
   created_at: string
 }
 
@@ -123,9 +142,34 @@ export const authService = {
     const response = await api.get<User>('/auth/me')
     return response.data
   },
+
+  async updateCurrentUser(data: { full_name?: string; avatar_url?: string }) {
+    const response = await api.put<User>('/auth/me', data)
+    return response.data
+  },
   
   async changePassword(data: any) {
     const response = await api.post('/auth/change-password', data)
+    return response.data
+  },
+
+  async getPreferences() {
+    const response = await api.get<UserPreferences>('/auth/preferences')
+    return response.data
+  },
+
+  async updatePreferences(data: Partial<UserPreferences>) {
+    const response = await api.put<UserPreferences>('/auth/preferences', data)
+    return response.data
+  },
+
+  async getSearchHistory(limit = 20) {
+    const response = await api.get<{ total: number; history: SearchHistoryItem[] }>(`/auth/search-history?limit=${limit}`)
+    return response.data
+  },
+
+  async clearSearchHistory() {
+    const response = await api.delete<{ message: string }>('/auth/search-history')
     return response.data
   }
 }
@@ -187,6 +231,7 @@ export interface AgentStep {
   status: AgentStepStatus
   tool_input?: Record<string, any>
   expected_output?: string
+  reasoning_summary?: string
   observation?: string
   sources?: Source[]
   latency_ms?: number
@@ -216,6 +261,7 @@ export interface AgentQueryRequest {
   top_k?: number
   allow_web_search?: boolean
   return_steps?: boolean
+  retrieval_mode?: 'local' | 'external' | 'hybrid'
 }
 
 export interface AgentQueryResponse extends AgentRunState {
@@ -232,6 +278,7 @@ export interface StreamEvent {
     | 'done'
     | 'error'
     | 'plan'
+    | 'thought'
     | 'step_start'
     | 'tool_call'
     | 'tool_result'
@@ -382,6 +429,7 @@ export const chatService = {
       top_k?: number
       min_relevance_score?: number
       web_search?: boolean
+      retrieval_mode?: 'local' | 'external' | 'hybrid'
       image_base64?: string | null
     },
     onEvent?: (event: StreamEvent) => void
@@ -394,6 +442,7 @@ export const chatService = {
           top_k: data.top_k,
           allow_web_search: data.web_search,
           return_steps: true,
+          retrieval_mode: data.retrieval_mode || 'hybrid',
         },
         onEvent
       )
@@ -420,7 +469,8 @@ export const chatService = {
   async search(query: string) {
     const response = await api.post<ChatResponse>('/rag/query', {
       query,
-      top_k: 5
+      top_k: 5,
+      retrieval_mode: 'local',
     })
     return response.data
   },

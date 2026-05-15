@@ -49,6 +49,7 @@ class AgentConstraints(BaseModel):
     top_k: int = Field(5, ge=1, le=20, description="默认检索返回数量")
     allow_web_search: bool = Field(True, description="是否允许网络检索")
     read_only_tools: bool = Field(True, description="当前阶段仅允许只读工具")
+    retrieval_mode: str = Field("hybrid", description="默认检索模式: local/external/hybrid")
 
 
 class AgentStep(BaseModel):
@@ -60,6 +61,7 @@ class AgentStep(BaseModel):
     tool_name: str = Field(..., description="工具名称")
     tool_input: Dict[str, Any] = Field(default_factory=dict, description="工具输入")
     expected_output: str = Field(..., description="预期输出")
+    reasoning_summary: Optional[str] = Field(None, description="该步的简短思考摘要")
     status: AgentStepStatus = Field(default=AgentStepStatus.PENDING, description="步骤状态")
     observation: Optional[str] = Field(None, description="执行观察结果")
     sources: List[Dict[str, Any]] = Field(default_factory=list, description="步骤来源")

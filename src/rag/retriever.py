@@ -34,6 +34,7 @@ class RAGResult:
     question: str
     answer: str
     context_documents: List[Document] = field(default_factory=list)
+    sources: List[Dict[str, Any]] = field(default_factory=list)
 
 
 # RAG 提示词（从 prompts 模块获取，这里保留默认值作为备用）

@@ -14,6 +14,7 @@ class RAGQueryRequest(BaseModel):
     query: str = Field(..., description="查询问题", min_length=1, max_length=1000)
     top_k: int = Field(5, description="返回的文档数量", ge=1, le=20)
     temperature: float = Field(0.7, description="LLM 温度参数", ge=0.0, le=2.0)
+    retrieval_mode: str = Field("local", description="检索模式: local/external/hybrid")
 
 
 class DocumentSource(BaseModel):
@@ -56,6 +57,7 @@ class AgentQueryRequest(BaseModel):
     top_k: int = Field(5, description="文献检索返回数量", ge=1, le=20)
     allow_web_search: bool = Field(True, description="是否允许调用网络检索工具")
     return_steps: bool = Field(True, description="是否返回详细步骤")
+    retrieval_mode: str = Field("hybrid", description="Agent 检索偏好: local/external/hybrid")
 
 
 class AgentStepResponse(BaseModel):
@@ -68,6 +70,7 @@ class AgentStepResponse(BaseModel):
     status: str = Field(..., description="步骤状态")
     tool_input: Dict[str, Any] = Field(default_factory=dict, description="工具输入")
     expected_output: str = Field(..., description="预期输出")
+    reasoning_summary: Optional[str] = Field(None, description="该步的简短思考摘要")
     observation: Optional[str] = Field(None, description="观察结果")
     sources: List[DocumentSource] = Field(default_factory=list, description="来源列表")
     latency_ms: Optional[int] = Field(None, description="步骤耗时")

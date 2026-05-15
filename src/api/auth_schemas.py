@@ -146,6 +146,7 @@ class ChatRequest(BaseModel):
     top_k: int = Field(default=5, description="检索文档数量", ge=1, le=10)
     min_relevance_score: float = Field(default=0.0, description="最小相关度阈值 (0.0-1.0)", ge=0.0, le=1.0)
     web_search: bool = Field(default=False, description="是否启用网络搜索")
+    retrieval_mode: str = Field(default="local", description="RAG 检索模式: local/external/hybrid")
     return_sources: bool = Field(default=True, description="是否返回参考来源")
     image_base64: Optional[str] = Field(None, description="图像的Base64编码数据")
     
@@ -154,6 +155,13 @@ class ChatRequest(BaseModel):
         allowed = ["chat", "rag", "agent"]
         if v not in allowed:
             raise ValueError(f"模式必须是 {allowed} 之一")
+        return v
+
+    @validator("retrieval_mode")
+    def validate_retrieval_mode(cls, v):
+        allowed = ["local", "external", "hybrid"]
+        if v not in allowed:
+            raise ValueError(f"retrieval_mode 必须是 {allowed} 之一")
         return v
 
 

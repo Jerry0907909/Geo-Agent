@@ -47,7 +47,7 @@ rag:
 # Agent 配置
 agent:
   # Agent 类型: "react" (简单ReAct) 或 "plan_execute" (任务规划)
-  agent_type: "plan_execute"
+  agent_type: "react"
   max_iterations: 10
   timeout: 300
   verbose: true

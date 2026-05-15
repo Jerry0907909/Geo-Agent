@@ -32,6 +32,7 @@ def _build_constraints(request: AgentQueryRequest) -> AgentConstraints:
         top_k=request.top_k,
         allow_web_search=request.allow_web_search,
         read_only_tools=True,
+        retrieval_mode=request.retrieval_mode,
     )
 
 
@@ -63,6 +64,7 @@ def _serialize_steps(state: AgentSessionState, return_steps: bool) -> List[Agent
             status=getattr(step.status, "value", step.status),
             tool_input=step.tool_input,
             expected_output=step.expected_output,
+            reasoning_summary=step.reasoning_summary,
             observation=step.observation,
             sources=_serialize_sources(step.sources),
             latency_ms=step.latency_ms,

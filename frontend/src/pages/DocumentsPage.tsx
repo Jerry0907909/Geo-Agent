@@ -37,17 +37,17 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color }) => (
   <motion.div
-    whileHover={{ y: -2, scale: 1.02 }}
-    transition={{ duration: 0.3 }}
-    className="bg-white dark:bg-slate-800 rounded-lg p-4 cursor-default shadow-sm dark:shadow-slate-900/30"
+    whileHover={{ y: -1 }}
+    transition={{ duration: 0.22 }}
+    className="surface-panel rounded-[24px] p-5 backdrop-blur-sm"
   >
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-xs mb-1 text-slate-500 dark:text-slate-400">{title}</p>
-        <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+        <p className="mb-1 text-sm text-slate-500 dark:text-slate-400">{title}</p>
+        <p className="text-[34px] font-semibold leading-none" style={{ color }}>{value}</p>
       </div>
       <div 
-        className="h-10 w-10 rounded-lg flex items-center justify-center"
+        className="flex h-14 w-14 items-center justify-center rounded-2xl"
         style={{ backgroundColor: `${color}15` }}
       >
         <div style={{ color }}>{icon}</div>
@@ -104,8 +104,8 @@ const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, 
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       className={cn(
-        "bg-white dark:bg-slate-800 rounded-lg p-4 transition-all duration-300 cursor-pointer group",
-        isHovered ? "shadow-lg dark:shadow-slate-900/50" : "shadow-sm dark:shadow-slate-900/30"
+        "surface-panel cursor-pointer rounded-[26px] p-5 transition-all duration-250 group",
+        isHovered ? "border-primary/25 bg-white/88 dark:bg-[#1c2639]" : ""
       )}
       style={{ borderLeft: `3px solid ${fileColor}` }}
       onClick={onView}
@@ -151,7 +151,7 @@ const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, 
         >
           <button
             onClick={(e) => { e.stopPropagation(); onView() }}
-            className="p-2 rounded-lg transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="p-2 rounded-lg transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#253148]"
             title="预览"
           >
             <Eye className="h-4 w-4" />
@@ -196,11 +196,11 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
       onHoverEnd={() => setIsHovered(false)}
       onClick={onSelect}
       className={cn(
-        "rounded-lg p-3 transition-all duration-300 cursor-pointer",
-        isHovered ? "shadow-lg dark:shadow-slate-900/50" : "shadow-sm dark:shadow-slate-900/30",
+        "surface-panel cursor-pointer rounded-[24px] p-4 transition-all duration-250",
+        isHovered ? "border-primary/20 bg-white/88 dark:bg-[#1c2639]" : "",
         isSelected 
-          ? "bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 dark:border-blue-400" 
-          : "bg-white dark:bg-slate-800 border-2 border-transparent"
+          ? "border-blue-500 bg-blue-50/80 dark:border-blue-400 dark:bg-blue-950/22"
+          : ""
       )}
     >
       <div className="flex items-center justify-between">
@@ -208,7 +208,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
           <div 
             className={cn(
               "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-              isSelected ? "bg-blue-100 dark:bg-blue-800/50" : "bg-blue-50 dark:bg-blue-900/30"
+              isSelected ? "bg-blue-100 dark:bg-blue-800/34" : "bg-blue-50 dark:bg-blue-900/22"
             )}
           >
             <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -236,7 +236,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
         >
           <button
             onClick={onRename}
-            className="p-1.5 rounded-lg transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="p-1.5 rounded-lg transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#253148]"
             title="重命名"
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -289,7 +289,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ type, onAction }) => {
       transition={{ duration: 0.5 }}
       className="flex flex-col items-center justify-center py-12 px-4"
     >
-      <div className="mb-4 p-4 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+      <div className="surface-subtle mb-4 rounded-full p-4 text-slate-500 dark:text-slate-400">
         {icon}
       </div>
       <h4 className="text-base font-medium mb-2 text-slate-800 dark:text-slate-200">{title}</h4>
@@ -331,7 +331,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onC
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl dark:shadow-slate-900/50"
+          className="surface-strong mx-4 w-full max-w-sm rounded-xl p-6 shadow-2xl dark:shadow-slate-950/30"
         >
           <div className="flex items-center gap-3 mb-4">
             <div className="h-10 w-10 rounded-full flex items-center justify-center bg-red-50 dark:bg-red-900/30">
@@ -344,7 +344,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onC
             <button
               onClick={onCancel}
               disabled={isLoading}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+              className="surface-subtle rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-[#253148]"
             >
               取消
             </button>
@@ -407,7 +407,7 @@ const InputModal: React.FC<InputModalProps> = ({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl dark:shadow-slate-900/50"
+            className="surface-strong mx-4 w-full max-w-sm rounded-xl p-6 shadow-2xl dark:shadow-slate-950/30"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="h-10 w-10 rounded-full flex items-center justify-center bg-blue-50 dark:bg-blue-900/30">
@@ -421,7 +421,7 @@ const InputModal: React.FC<InputModalProps> = ({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={placeholder}
-              className="w-full px-4 py-3 rounded-lg border text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+              className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-[#162031] dark:text-slate-200 dark:placeholder-slate-500"
               onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
               autoFocus
             />
@@ -434,7 +434,7 @@ const InputModal: React.FC<InputModalProps> = ({
               <button
                 onClick={onCancel}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                className="surface-subtle rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-[#253148]"
               >
                 取消
               </button>
@@ -501,7 +501,7 @@ const ProgressOverlay: React.FC<ProgressOverlayProps> = ({ isVisible, title, mes
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white dark:bg-slate-800 rounded-xl p-8 w-full max-w-sm mx-4 text-center shadow-2xl dark:shadow-slate-900/50"
+          className="surface-strong mx-4 w-full max-w-sm rounded-xl p-8 text-center shadow-2xl dark:shadow-slate-950/30"
         >
           {/* 加载动画 */}
           <div className="relative w-20 h-20 mx-auto mb-6">
@@ -712,10 +712,10 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-slate-800 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl dark:shadow-slate-900/50"
+              className="surface-strong flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl shadow-2xl dark:shadow-slate-950/30"
             >
               {/* 头部 */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-white/8">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-blue-50 dark:bg-blue-900/30">
                     <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -728,7 +728,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                     </p>
                   </div>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                  <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-[#253148]">
                   <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                 </button>
               </div>
@@ -742,7 +742,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                       activeTab === 'text' 
                         ? "text-white bg-blue-600 dark:bg-blue-500" 
-                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#253148]"
                     )}
                   >
                     <span className="flex items-center gap-2">
@@ -756,7 +756,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                       activeTab === 'images' 
                         ? "text-white bg-blue-600 dark:bg-blue-500" 
-                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#253148]"
                     )}
                   >
                     <span className="flex items-center gap-2">
@@ -779,11 +779,11 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                   <textarea
                     value={editedContent}
                     onChange={(e) => onContentChange(e.target.value)}
-                    className="w-full h-[50vh] p-4 rounded-lg border text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                    className="h-[50vh] w-full resize-none rounded-lg border border-slate-200 bg-white p-4 text-sm font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-[#162031] dark:text-slate-200"
                     placeholder="输入文献内容..."
                   />
                 ) : activeTab === 'text' ? (
-                  <div className="h-[50vh] overflow-auto p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                  <div className="surface-subtle h-[50vh] overflow-auto rounded-lg p-4">
                     <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans text-slate-700 dark:text-slate-300">
                       {content}
                     </pre>
@@ -809,7 +809,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                             className="relative group cursor-pointer rounded-lg overflow-hidden shadow-sm dark:shadow-slate-900/30"
                             onClick={() => openImageViewer(index)}
                           >
-                            <div className="aspect-[4/3] bg-slate-100 dark:bg-slate-700">
+                            <div className="surface-subtle aspect-[4/3]">
                               <img 
                                 src={img.base64} 
                                 alt={`第 ${img.page} 页 - 图片 ${img.index + 1}`}
@@ -835,13 +835,13 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
               </div>
               
               {/* 底部操作 */}
-              <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-white/8">
                 {isEditing ? (
                   <>
                     <button
                       onClick={onCancelEdit}
                       disabled={isSaving}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                      className="surface-subtle flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-[#253148]"
                     >
                       <X className="h-4 w-4" /> 取消
                     </button>
@@ -858,7 +858,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                   <>
                     <button
                       onClick={onClose}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                      className="surface-subtle rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors dark:text-slate-300 dark:hover:bg-[#253148]"
                     >
                       关闭
                     </button>
@@ -1312,16 +1312,50 @@ export default function DocumentsPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   return (
-    <div className="h-full overflow-auto bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* 页面标题 */}
-        <div className="mb-6">
-          <h1 className="text-xl font-bold mb-1 text-slate-800 dark:text-slate-200">文献管理</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">管理知识库文献，支持 PDF、Word、Markdown、TXT 等格式</p>
+    <div className="h-full overflow-auto bg-transparent">
+      <div className="mx-auto max-w-7xl p-5 md:p-6">
+        <div className="mb-7 px-1 py-2">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Knowledge Base</div>
+              <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.02em] text-slate-800 dark:text-slate-100">文献管理</h1>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">管理知识库文献，支持 PDF、Word、Markdown、TXT 等格式</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleRebuildIndex}
+                disabled={isRebuilding}
+                className={cn(
+                  "surface-subtle inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-white dark:text-slate-300 dark:hover:bg-[#253148]",
+                  isRebuilding && "opacity-60"
+                )}
+              >
+                {isRebuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                扫描目录
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                disabled={isUploading}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:bg-primary/90"
+                title={selectedCollection ? `上传到「${selectedCollection}」` : '上传到默认知识库'}
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                上传文献
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* 统计卡片区 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* 统计区 */}
+        <div className="mb-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard title="总文献数" value={totalFiles} icon={<FolderOpen className="h-5 w-5" />} color={colors.primary} />
           <StatCard title="总片段数" value={totalChunks} icon={<FileText className="h-5 w-5" />} color="#00B42A" />
           <StatCard title="知识库数" value={collections.length} icon={<Database className="h-5 w-5" />} color="#722ED1" />
@@ -1329,15 +1363,15 @@ export default function DocumentsPage() {
         </div>
 
         {/* 文件类型筛选 */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          <span className="text-sm mr-2 text-slate-500 dark:text-slate-400">筛选:</span>
+        <div className="mb-7 flex flex-wrap items-center gap-2">
+          <span className="mr-2 text-sm text-slate-500 dark:text-slate-400">筛选:</span>
           <button
             onClick={() => handleFileTypeChange(null)}
             className={cn(
-              "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
+              "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
               selectedFileType === null 
                 ? "text-white bg-blue-600 dark:bg-blue-500" 
-                : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800"
+                : "text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-[#1d2739]"
             )}
           >
             全部 ({totalFiles})
@@ -1347,10 +1381,10 @@ export default function DocumentsPage() {
               key={stat.type}
               onClick={() => handleFileTypeChange(stat.type)}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
+                "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
                 selectedFileType === stat.type 
                   ? "text-white bg-blue-600 dark:bg-blue-500" 
-                  : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-[#1d2739]"
               )}
             >
               {stat.label} ({stat.count})
@@ -1362,9 +1396,9 @@ export default function DocumentsPage() {
         <div className="grid lg:grid-cols-10 gap-6">
           {/* 文献展示区 (7/10) */}
           <div className="lg:col-span-7">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm dark:shadow-slate-900/30">
+            <div className="surface-panel overflow-hidden rounded-[28px] backdrop-blur-sm">
               {/* 标题栏 */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/8">
                 <div>
                   <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
                     {selectedFileType ? `${fileTypeStats.find(s => s.type === selectedFileType)?.label || ''} 文件` : '全部文献'}
@@ -1372,31 +1406,16 @@ export default function DocumentsPage() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">{documents.length} 个文件</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                    disabled={isUploading}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:scale-[0.98] active:scale-[0.96] bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                    title={selectedCollection ? `上传到「${selectedCollection}」` : '上传到默认知识库'}
-                  >
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    上传文献
-                    {selectedCollection && (
-                      <span className="text-xs opacity-80">→ {selectedCollection}</span>
-                    )}
-                  </button>
+                  {selectedCollection && (
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                      上传目标: {selectedCollection}
+                    </span>
+                  )}
                 </div>
               </div>
               
               {/* 文献列表 */}
-              <div className="p-4 max-h-[520px] overflow-auto">
+              <div className="max-h-[520px] overflow-auto p-4">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
@@ -1425,8 +1444,8 @@ export default function DocumentsPage() {
           {/* 右侧面板 (3/10) */}
           <div className="lg:col-span-3 space-y-6">
             {/* 知识库集合区 */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm dark:shadow-slate-900/30">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="surface-panel overflow-hidden rounded-[28px] backdrop-blur-sm">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/8">
                 <div>
                   <h2 className="text-base font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-200">
                     <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -1470,7 +1489,7 @@ export default function DocumentsPage() {
             </div>
 
             {/* 索引操作区 */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm dark:shadow-slate-900/30">
+            <div className="surface-panel rounded-[28px] p-4 backdrop-blur-sm">
               <h2 className="text-base font-semibold mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200">
                 <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 批量导入
@@ -1480,8 +1499,8 @@ export default function DocumentsPage() {
                 disabled={isRebuilding}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-[0.98] active:scale-[0.96]",
-                  "bg-slate-100 dark:bg-slate-700",
-                  isRebuilding ? "text-slate-400 dark:text-slate-500" : "text-slate-600 dark:text-slate-300"
+                  "surface-subtle",
+                  isRebuilding ? "text-slate-400 dark:text-slate-500" : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-[#253148]"
                 )}
               >
                 {isRebuilding ? (

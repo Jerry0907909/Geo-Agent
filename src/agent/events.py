@@ -13,6 +13,7 @@ class AgentEventType(str, Enum):
     INFO = "info"
     ROUTE = "route"
     PLAN = "plan"
+    THOUGHT = "thought"
     STEP_START = "step_start"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
@@ -52,6 +53,14 @@ def create_route_event(run_id: str, intent: str, summary: str, reason: str, **pa
         type=AgentEventType.ROUTE,
         run_id=run_id,
         payload={"intent": intent, "summary": summary, "reason": reason, **payload},
+    )
+
+
+def create_thought_event(run_id: str, summary: str, **payload: Any) -> AgentEvent:
+    return AgentEvent(
+        type=AgentEventType.THOUGHT,
+        run_id=run_id,
+        payload={"summary": summary, **payload},
     )
 
 

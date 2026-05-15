@@ -172,14 +172,14 @@ def create_default_tool_registry() -> ToolRegistry:
             name="literature_search",
             description=(
                 "工具名：literature_search\n"
-                "用途：检索本地文献知识库中的相关片段。\n"
-                "适用场景：当问题需要引用已有文献内容、查找地质学资料、获取本地知识库依据时使用。\n"
-                "输入：query(string), top_k(number)\n"
-                "输出：文献片段列表，每条包含 source、content、relevance_score。\n"
-                "限制：只检索本地知识库，不生成最终答案。\n"
-                "不要用于：需要实时网络信息、需要做数学计算、需要直接输出完整最终结论的场景。"
+                "用途：检索本地知识库、外部网页或混合证据中的相关片段。\n"
+                "适用场景：当问题需要引用已有文献内容、查找地质学资料、获取外部补充证据时使用。\n"
+                "输入：query(string), top_k(number), source_mode(string: local/external/hybrid)\n"
+                "输出：证据片段列表，每条包含 source、content、relevance_score。\n"
+                "限制：只检索证据，不生成最终答案。\n"
+                "不要用于：需要做数学计算、需要直接输出完整最终结论的场景。"
             ),
-            input_schema={"query": "string", "top_k": "number"},
+            input_schema={"query": "string", "top_k": "number", "source_mode": "string?"},
             output_schema={"documents": "list"},
             timeout_s=literature_timeout,
         ),
@@ -187,14 +187,14 @@ def create_default_tool_registry() -> ToolRegistry:
             name="knowledge_query",
             description=(
                 "工具名：knowledge_query\n"
-                "用途：基于已有知识库上下文生成归纳型回答。\n"
-                "适用场景：当已经有足够上下文，需要对知识库内容做概括、对比或总结时使用。\n"
-                "输入：query(string), top_k(number)\n"
-                "输出：基于知识库的答案摘要和引用来源。\n"
-                "限制：依赖本地知识库，不获取网络实时信息。\n"
+                "用途：基于本地知识库、外部网页或混合上下文生成归纳型回答。\n"
+                "适用场景：当已经有足够上下文，需要对检索结果做概括、对比或总结时使用。\n"
+                "输入：query(string), top_k(number), source_mode(string: local/external/hybrid)\n"
+                "输出：基于检索上下文的答案摘要和引用来源。\n"
+                "限制：工具本身只负责基于检索结果作答，不负责修改业务数据。\n"
                 "不要用于：普通闲聊、只需要原始片段检索、需要数学计算、需要集合元数据的场景。"
             ),
-            input_schema={"query": "string", "top_k": "number"},
+            input_schema={"query": "string", "top_k": "number", "source_mode": "string?"},
             output_schema={"answer": "string", "sources": "list"},
             timeout_s=knowledge_timeout,
         ),

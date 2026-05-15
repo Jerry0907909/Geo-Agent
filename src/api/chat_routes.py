@@ -28,6 +28,7 @@ from src.database.models import User, Conversation, Message, SearchHistory
 from src.agent.runtime import create_agent_runtime
 from src.agent.schemas import AgentConstraints, AgentSessionState
 from src.rag.chain import create_rag_chain
+from src.rag.unified_retrieval import create_unified_retrieval_service
 from src.core.llm_provider import create_llm_provider
 from src.core.prompts import (
     get_chat_prompt,
@@ -49,6 +50,7 @@ def _build_agent_constraints(request: ChatRequest) -> AgentConstraints:
         top_k=request.top_k,
         allow_web_search=request.web_search,
         read_only_tools=True,
+        retrieval_mode=request.retrieval_mode if request.web_search else "local",
     )
 
 
@@ -78,6 +80,7 @@ def _serialize_agent_steps(state: AgentSessionState) -> List[dict[str, Any]]:
             "tool_name": step.tool_name,
             "tool_input": step.tool_input,
             "expected_output": step.expected_output,
+            "reasoning_summary": step.reasoning_summary,
             "status": step.status,
             "observation": step.observation,
             "sources": _serialize_agent_sources(step.sources),
@@ -490,16 +493,25 @@ async def send_message(
         elif request.mode == "rag":
             # RAG模式 - 文献检索增强生成
             rag_chain = create_rag_chain()
-            result = rag_chain.query(request.message, top_k=request.top_k)
+            result = rag_chain.query(
+                request.message,
+                top_k=request.top_k,
+                retrieval_mode=request.retrieval_mode,
+                min_relevance_score=request.min_relevance_score,
+            )
             answer = result.answer
             
             # 提取来源
-            if request.return_sources and result.context_documents:
-                for doc in result.context_documents:
+            if request.return_sources and result.sources:
+                for source in result.sources:
                     sources.append({
-                        "content": doc.page_content[:300],
-                        "source": doc.metadata.get("source", "未知来源"),
-                        "relevance_score": doc.metadata.get("relevance_score")
+                        "content": str(source.get("content", ""))[:300],
+                        "source": source.get("source", "未知来源"),
+                        "relevance_score": source.get("relevance_score"),
+                        "url": source.get("url"),
+                        "type": source.get("type"),
+                        "source_type": source.get("source_type"),
+                        "metadata": source.get("metadata", {}),
                     })
         
         else:
@@ -626,14 +638,24 @@ async def quick_query(
         elif request.mode == "rag":
             # RAG模式
             rag_chain = create_rag_chain()
-            result = rag_chain.query(request.message, top_k=request.top_k)
+            result = rag_chain.query(
+                request.message,
+                top_k=request.top_k,
+                retrieval_mode=request.retrieval_mode,
+                min_relevance_score=request.min_relevance_score,
+            )
             answer = result.answer
             
-            if request.return_sources and result.context_documents:
-                for doc in result.context_documents:
+            if request.return_sources and result.sources:
+                for source in result.sources:
                     sources.append({
-                        "content": doc.page_content[:300],
-                        "source": doc.metadata.get("source", "未知来源")
+                        "content": str(source.get("content", ""))[:300],
+                        "source": source.get("source", "未知来源"),
+                        "relevance_score": source.get("relevance_score"),
+                        "url": source.get("url"),
+                        "type": source.get("type"),
+                        "source_type": source.get("source_type"),
+                        "metadata": source.get("metadata", {}),
                     })
         
         else:
@@ -923,25 +945,30 @@ async def stream_chat(
                         yield f"data: {json.dumps({'type': 'content', 'content': chunk}, ensure_ascii=False)}\n\n"
             
             elif request_mode == "rag":
-                # RAG模式 - 使用 LangChain LCEL 流式生成
+                # RAG模式 - 使用统一检索服务
                 yield f"data: {json.dumps({'type': 'status', 'message': '正在检索文献...'}, ensure_ascii=False)}\n\n"
-                
-                from src.rag.web_enhanced_retriever import create_web_enhanced_rag_retriever
-                
-                rag_retriever = create_web_enhanced_rag_retriever()
-                
-                # 使用 WebSearch 增强的 RAG
-                docs, web_results, answer_stream = await rag_retriever.astream_with_web(
-                    request_message, 
+
+                retrieval_mode = request.retrieval_mode
+                if request_web_search and retrieval_mode == "local":
+                    retrieval_mode = "hybrid"
+
+                retrieval_service = create_unified_retrieval_service()
+                answer, retrieval = retrieval_service.answer(
+                    query=request_message,
                     top_k=request_top_k,
+                    retrieval_mode=retrieval_mode,
                     min_relevance_score=request_min_relevance_score,
-                    enable_web_search=request_web_search
                 )
-                
-                # 调试日志
-                logger.info(f"RAG 检索: query='{request_message}', top_k={request_top_k}, min_score={request_min_relevance_score}, 结果数={len(docs)}")
-                for i, doc in enumerate(docs):
-                    logger.info(f"  文档[{i}]: score={doc.metadata.get('relevance_score')}, content={doc.page_content[:100]}...")
+                docs = retrieval.documents
+                logger.info(
+                    "RAG 检索: query='%s', mode=%s, top_k=%s, min_score=%s, local_docs=%s, total_sources=%s",
+                    request_message,
+                    retrieval_mode,
+                    request_top_k,
+                    request_min_relevance_score,
+                    len(docs),
+                    len(retrieval.sources),
+                )
                 
                 # 收集文档关联的图片
                 doc_images = []
@@ -970,31 +997,8 @@ async def stream_chat(
                         except Exception as e:
                             logger.warning(f"  加载图片失败: {images_file}, 错误: {e}")
                 
-                # 发送来源信息（文献 + 网络链接）
-                if docs:
-                    for doc in docs:
-                        sources.append({
-                            "content": doc.page_content[:300],
-                            "source": doc.metadata.get("source", "未知来源"),
-                            "relevance_score": doc.metadata.get("relevance_score"),
-                            "type": "document",
-                            "metadata": {
-                                k: v for k, v in doc.metadata.items() 
-                                if k not in ["page_content", "chroma_id"]
-                            }
-                        })
-                
-                # 添加网络搜索结果
-                if web_results:
-                    for result in web_results:
-                        sources.append({
-                            "content": result.snippet,
-                            "source": result.title,
-                            "url": result.url,
-                            "type": "web",
-                            "source_type": result.source_type,
-                            "metadata": {}
-                        })
+                # 发送来源信息（本地 / 外部 / 混合）
+                sources = _serialize_agent_sources(retrieval.sources)
                 
                 if sources:
                     yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
@@ -1075,10 +1079,11 @@ async def stream_chat(
                 else:
                     yield f"data: {json.dumps({'type': 'status', 'message': '正在生成回答...'}, ensure_ascii=False)}\n\n"
                     
-                    # 流式生成答案
-                    async for chunk in answer_stream:
-                        full_response += chunk
-                        yield f"data: {json.dumps({'type': 'content', 'content': chunk}, ensure_ascii=False)}\n\n"
+                sources = _serialize_agent_sources(retrieval.sources)
+                if sources:
+                    yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
+                full_response = answer
+                yield f"data: {json.dumps({'type': 'content', 'content': answer}, ensure_ascii=False)}\n\n"
             elif request_mode == "agent":
                 runtime = create_agent_runtime()
                 state = runtime.create_run_state(
@@ -1111,7 +1116,7 @@ async def stream_chat(
                         yield f"data: {json.dumps(event_payload, ensure_ascii=False)}\n\n"
                         continue
 
-                    if event.type.value in {"plan", "step_start", "tool_call", "tool_result", "replan", "content"}:
+                    if event.type.value in {"plan", "thought", "step_start", "tool_call", "tool_result", "replan", "content"}:
                         yield f"data: {json.dumps(event_payload, ensure_ascii=False)}\n\n"
                         if event.type.value == "tool_result" and event.payload.get("sources"):
                             sources = _serialize_agent_sources(event.payload.get("sources", []))

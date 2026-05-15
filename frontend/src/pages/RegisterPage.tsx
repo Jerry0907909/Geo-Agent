@@ -78,7 +78,7 @@ export default function RegisterPage() {
   return (
     <div className="relative flex items-center justify-center min-h-screen overflow-hidden">
       {/* 背景渐变 - 莫兰迪蓝色系 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-[#0d1320] dark:via-[#111827] dark:to-[#0f1726]" />
       
       {/* 背景装饰元素 */}
       <div className="absolute inset-0 overflow-hidden">
@@ -92,7 +92,7 @@ export default function RegisterPage() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3, duration: 0.3 }}
         onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 p-3 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-200"
+        className="fixed top-6 right-6 z-50 rounded-full border border-slate-200 bg-white/80 p-3 shadow-lg backdrop-blur-md transition-all duration-200 hover:shadow-xl dark:border-white/8 dark:bg-[#162031]/90 dark:hover:bg-[#1d2940]"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
@@ -118,7 +118,7 @@ export default function RegisterPage() {
         className="relative z-10 w-full max-w-lg mx-4"
       >
         {/* 毛玻璃卡片 */}
-        <div className="relative backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/70 shadow-2xl backdrop-blur-xl dark:border-white/8 dark:bg-[#111827]/88">
           {/* 顶部高光 */}
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
           
@@ -166,12 +166,12 @@ export default function RegisterPage() {
                   onBlur={() => handleBlur('username')}
                   placeholder="设置用户名（至少3个字符）"
                   required
-                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-slate-800/50 border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-slate-800 ${
+                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-[#162031] border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-[#1a2538] ${
                     touched.username && !validation.username
                       ? 'border-red-300 dark:border-red-700 focus:border-red-500'
                       : focusedField === 'username'
                       ? 'border-blue-500 focus:shadow-lg focus:shadow-blue-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/15'
                   }`}
                 />
                 {touched.username && (
@@ -218,12 +218,12 @@ export default function RegisterPage() {
                   onBlur={() => handleBlur('email')}
                   placeholder="your@email.com"
                   required
-                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-slate-800/50 border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-slate-800 ${
+                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-[#162031] border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-[#1a2538] ${
                     touched.email && !validation.email
                       ? 'border-red-300 dark:border-red-700 focus:border-red-500'
                       : focusedField === 'email'
                       ? 'border-blue-500 focus:shadow-lg focus:shadow-blue-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/15'
                   }`}
                 />
                 {touched.email && (
@@ -269,10 +269,10 @@ export default function RegisterPage() {
                   onFocus={() => setFocusedField('full_name')}
                   onBlur={() => handleBlur('full_name')}
                   placeholder="您的姓名"
-                  className={`w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-slate-800/50 border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-slate-800 ${
+                  className={`w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-[#162031] border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-[#1a2538] ${
                     focusedField === 'full_name'
                       ? 'border-blue-500 focus:shadow-lg focus:shadow-blue-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/15'
                   }`}
                 />
                 {focusedField === 'full_name' && (
@@ -310,12 +310,12 @@ export default function RegisterPage() {
                   onBlur={() => handleBlur('password')}
                   placeholder="设置密码（至少6个字符）"
                   required
-                  className={`w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-slate-800/50 border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-slate-800 ${
+                  className={`w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-[#162031] border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-[#1a2538] ${
                     touched.password && !validation.password
                       ? 'border-red-300 dark:border-red-700 focus:border-red-500'
                       : focusedField === 'password'
                       ? 'border-blue-500 focus:shadow-lg focus:shadow-blue-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/15'
                   }`}
                 />
                 {focusedField === 'password' && (
@@ -353,12 +353,12 @@ export default function RegisterPage() {
                   onBlur={() => handleBlur('confirmPassword')}
                   placeholder="再次输入密码"
                   required
-                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-slate-800/50 border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-slate-800 ${
+                  className={`w-full pl-10 pr-10 py-3 bg-white/50 dark:bg-[#162031] border-2 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all duration-200 focus:outline-none focus:bg-white dark:focus:bg-[#1a2538] ${
                     touched.confirmPassword && !validation.confirmPassword
                       ? 'border-red-300 dark:border-red-700 focus:border-red-500'
                       : focusedField === 'confirmPassword'
                       ? 'border-blue-500 focus:shadow-lg focus:shadow-blue-500/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/15'
                   }`}
                 />
                 {touched.confirmPassword && (

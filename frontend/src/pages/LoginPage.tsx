@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { authService } from '../services/api'
 import { useAuthStore } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
-import { Loader2, Lock, User, Sun, Moon, Check } from 'lucide-react'
+import { Loader2, Lock, User, Sun, Moon, Check, Globe2 } from 'lucide-react'
 
 // 登录成功动画组件
 const LoginSuccessAnimation = ({ onComplete }: { onComplete: () => void }) => {
@@ -18,7 +18,7 @@ const LoginSuccessAnimation = ({ onComplete }: { onComplete: () => void }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 dark:bg-[#111827]/88 backdrop-blur-md"
     >
       <div className="flex flex-col items-center">
         {/* 圆环进度动画 */}
@@ -133,33 +133,22 @@ export default function LoginPage() {
   }
 
   const handleAnimationComplete = () => {
-    // 跳转到首页
-    navigate('/home')
+    navigate('/chat')
   }
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-6 py-10">
       {/* 登录成功动画 */}
       <AnimatePresence>
         {showSuccess && <LoginSuccessAnimation onComplete={handleAnimationComplete} />}
       </AnimatePresence>
 
-      {/* 背景渐变 - 莫兰迪色系 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
-      
-      {/* 背景装饰元素 */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/4 w-96 h-96 bg-blue-200/30 dark:bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-1/2 -right-1/4 w-96 h-96 bg-indigo-200/30 dark:bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-      </div>
-
-      {/* 主题切换按钮 */}
       <motion.button
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3, duration: 0.3 }}
         onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 p-3 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-200 group"
+        className="fixed right-6 top-6 z-50 rounded-xl border border-black/5 bg-white/90 p-3 shadow-sm transition-all duration-200 hover:bg-white dark:border-white/8 dark:bg-[#162031]/92 dark:hover:bg-[#1d2940]"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
@@ -182,27 +171,25 @@ export default function LoginPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-md mx-4"
+        className="relative z-10 w-full max-w-[460px]"
       >
-        {/* 毛玻璃卡片 */}
-        <div className="relative backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden">
-          {/* 顶部高光 */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-          
-          {/* 内容区域 */}
+        <div className="relative overflow-hidden rounded-[28px] border border-black/5 bg-white/94 shadow-[0_16px_40px_rgba(15,23,42,0.06)] dark:border-white/8 dark:bg-[#111827]/96">
           <div className="p-8">
-            {/* 标题 */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
               className="text-center mb-8"
             >
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent mb-2">
+              <div className="inline-flex items-center gap-2 text-primary">
+                <Globe2 className="h-5 w-5" />
+                <span className="text-[13px] font-semibold">Geo-Agent</span>
+              </div>
+              <h1 className="mb-2 mt-5 text-[28px] font-semibold text-foreground">
                 Geo-Agent
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                输入您的账号和密码以继续
+                登录后继续进入研究工作区
               </p>
             </motion.div>
 
@@ -235,7 +222,7 @@ export default function LoginPage() {
                     placeholder="请输入用户名或邮箱"
                     required
                     disabled={loading || showSuccess}
-                    className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-200 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-800 focus:shadow-lg focus:shadow-blue-500/20 hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-50"
+                    className="w-full rounded-2xl border border-slate-200 bg-[#f7f9fc] py-3 pl-10 pr-4 text-slate-900 transition-all duration-200 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:shadow-lg focus:shadow-blue-500/10 hover:border-slate-300 disabled:opacity-50 dark:border-white/10 dark:bg-[#162031] dark:text-slate-100 dark:focus:bg-[#1a2538] dark:hover:border-white/15"
                   />
                   {/* 聚焦时的发光效果 */}
                   {focusedField === 'username' && (
@@ -275,7 +262,7 @@ export default function LoginPage() {
                     placeholder="请输入密码"
                     required
                     disabled={loading || showSuccess}
-                    className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-200 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-800 focus:shadow-lg focus:shadow-blue-500/20 hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-50"
+                    className="w-full rounded-2xl border border-slate-200 bg-[#f7f9fc] py-3 pl-10 pr-4 text-slate-900 transition-all duration-200 placeholder-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:shadow-lg focus:shadow-blue-500/10 hover:border-slate-300 disabled:opacity-50 dark:border-white/10 dark:bg-[#162031] dark:text-slate-100 dark:focus:bg-[#1a2538] dark:hover:border-white/15"
                   />
                   {/* 聚焦时的发光效果 */}
                   {focusedField === 'password' && (
@@ -313,7 +300,7 @@ export default function LoginPage() {
                   disabled={loading || showSuccess}
                   whileHover={{ scale: loading || showSuccess ? 1 : 1.02 }}
                   whileTap={{ scale: loading || showSuccess ? 1 : 0.98 }}
-                  className="relative w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 dark:from-blue-500 dark:to-indigo-500 dark:hover:from-blue-600 dark:hover:to-indigo-600 text-white font-medium rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden group"
+                  className="relative w-full overflow-hidden rounded-2xl bg-primary px-4 py-3 font-medium text-white shadow-lg shadow-blue-500/20 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 group hover:bg-primary/90"
                 >
                   {/* 按钮高光效果 */}
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
@@ -347,8 +334,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* 底部阴影 */}
-        <div className="absolute -bottom-4 left-4 right-4 h-4 bg-slate-900/5 dark:bg-black/20 rounded-full blur-xl" />
       </motion.div>
     </div>
   )

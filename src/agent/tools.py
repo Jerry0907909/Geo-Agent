@@ -267,32 +267,28 @@ def execute_document_read(tool_input: Dict[str, Any]) -> AgentToolResult:
 def execute_literature_search(tool_input: Dict[str, Any]) -> AgentToolResult:
     start_time = time.time()
     try:
-        from src.rag.retriever import create_rag_retriever
+        from src.rag.unified_retrieval import create_unified_retrieval_service
 
         query = _require_str(tool_input, "query")
         top_k = _optional_positive_int(tool_input, "top_k", 5)
-        retriever = create_rag_retriever()
-        # Agent 首期强调稳定性，避免在工具层叠加额外 LLM 改写查询导致超时。
-        docs = retriever.retrieve(query, top_k=top_k, use_multi_query=False, search_all=True)
-
-        sources = [
-            {
-                "content": doc.page_content[:300],
-                "source": doc.metadata.get("source", doc.metadata.get("file_name", "未知来源")),
-                "relevance_score": doc.metadata.get("relevance_score"),
-                "type": "document",
-                "metadata": {k: v for k, v in doc.metadata.items() if k not in {"page_content", "chroma_id"}},
-            }
-            for doc in docs
-        ]
+        source_mode = str(tool_input.get("source_mode", "local")).strip().lower() or "local"
+        retrieval = create_unified_retrieval_service().retrieve(
+            query=query,
+            top_k=top_k,
+            retrieval_mode=source_mode,
+            use_multi_query=False,
+        )
+        sources = retrieval.sources
         documents = [
             {
-                "content": doc.page_content,
-                "source": source["source"],
-                "relevance_score": doc.metadata.get("relevance_score"),
-                "metadata": source["metadata"],
+                "content": source.get("content", ""),
+                "source": source.get("source", "未知来源"),
+                "relevance_score": source.get("relevance_score"),
+                "metadata": source.get("metadata", {}),
+                "url": source.get("url"),
+                "type": source.get("type", "document"),
             }
-            for doc, source in zip(docs, sources)
+            for source in sources
         ]
         observation = f"检索到 {len(documents)} 条相关文献片段。"
         return _ok(
@@ -309,28 +305,21 @@ def execute_literature_search(tool_input: Dict[str, Any]) -> AgentToolResult:
 def execute_knowledge_query(tool_input: Dict[str, Any]) -> AgentToolResult:
     start_time = time.time()
     try:
-        from src.rag.chain import create_rag_chain
+        from src.rag.unified_retrieval import create_unified_retrieval_service
 
         query = _require_str(tool_input, "query")
         top_k = _optional_positive_int(tool_input, "top_k", 5)
-        rag_chain = create_rag_chain()
-        result = rag_chain.query(query, top_k=top_k)
-
-        sources = [
-            {
-                "content": doc.page_content[:300],
-                "source": doc.metadata.get("source", doc.metadata.get("file_name", "未知来源")),
-                "relevance_score": doc.metadata.get("relevance_score"),
-                "type": "document",
-                "metadata": {k: v for k, v in doc.metadata.items() if k not in {"page_content", "chroma_id"}},
-            }
-            for doc in result.context_documents
-        ]
+        source_mode = str(tool_input.get("source_mode", "local")).strip().lower() or "local"
+        answer, retrieval = create_unified_retrieval_service().answer(
+            query=query,
+            top_k=top_k,
+            retrieval_mode=source_mode,
+        )
         return _ok(
             start_time=start_time,
-            data={"answer": result.answer},
-            sources=sources,
-            observation=result.answer,
+            data={"answer": answer},
+            sources=retrieval.sources,
+            observation=answer,
         )
     except Exception as exc:
         logger.exception("knowledge_query 执行失败")

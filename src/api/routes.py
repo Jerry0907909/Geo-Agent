@@ -221,17 +221,21 @@ async def rag_query(request: RAGQueryRequest):
     try:
         rag_chain = create_rag_chain()
         start_time = time.time()
-        result = rag_chain.query(request.query, top_k=request.top_k)
+        result = rag_chain.query(
+            request.query,
+            top_k=request.top_k,
+            retrieval_mode=request.retrieval_mode,
+        )
         total_time = time.time() - start_time
-        
+
         sources = [
             DocumentSource(
-                content=doc.page_content[:300],
-                source=doc.metadata.get("source") or doc.metadata.get("file_name", "未知来源"),
-                relevance_score=doc.metadata.get("relevance_score"),
-                metadata=doc.metadata,
+                content=str(source.get("content", ""))[:300],
+                source=str(source.get("source") or "未知来源"),
+                relevance_score=source.get("relevance_score"),
+                metadata={k: v for k, v in source.items() if k not in {"content", "source", "relevance_score"}},
             )
-            for doc in result.context_documents
+            for source in result.sources
         ]
         
         return RAGQueryResponse(
