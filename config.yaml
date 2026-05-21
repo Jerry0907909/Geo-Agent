@@ -1,0 +1,177 @@
+# 地质文献智能体 - 配置文件
+
+# 模型配置
+embedding:
+  provider: "siliconflow"
+  api_endpoint: "${EMBEDDING_API_ENDPOINT}"
+  api_key: "${API_KEY}"
+  model_name: "${EMBEDDING_MODEL_NAME}"
+  embedding_dim: 1024
+  request_timeout: 30
+  use_env_proxy: false
+  proxy_url: ~
+  max_retries: 0
+
+llm:
+  provider: "siliconflow"
+  api_endpoint: "${LLM_API_ENDPOINT}"
+  api_key: "${API_KEY}"
+  model_name: "${LLM_MODEL_NAME}"
+  temperature: 0.7
+  max_tokens: 2048
+  top_p: 0.95
+  request_timeout: 60
+  use_env_proxy: false
+  proxy_url: ~
+  max_retries: 0
+
+# 向量数据库配置
+chroma:
+  persist_directory: "${CHROMA_PERSIST_DIR}"
+  collection_name: "${CHROMA_COLLECTION_NAME}"
+  distance_metric: "cosine"
+  anonymized_telemetry: false
+
+# RAG 配置
+rag:
+  top_k: 5
+  chunk_size: 1024
+  chunk_overlap: 128
+  similarity_threshold: ~  # 禁用阈值过滤，null/~ 表示不过滤
+  
+  # 混合检索配置
+  retrieval_mode: "hybrid"  # "vector_only", "bm25_only", "hybrid"
+  hybrid_alpha: 0.5  # 向量检索权重 (0-1)
+  use_jieba_tokenizer: true  # 中文分词
+  
+  # Reranker配置
+  use_reranker: true
+  reranker_model: "BAAI/bge-reranker-v2-m3"
+  reranker_initial_k: 20  # 初次检索数量
+  reranker_final_k: 5     # 重排后保留数量
+
+# Agent 配置
+agent:
+  # Agent 类型: "react" (简单ReAct) 或 "plan_execute" (任务规划)
+  agent_type: "plan_execute"
+  max_iterations: 10
+  timeout: 300
+  verbose: true
+  return_intermediate_steps: true
+  memory_type: "conversation_buffer"
+  memory_max_tokens: 4000
+
+# 文本处理配置
+text_processing:
+  splitter_type: "recursive_character"
+  separators:
+    - "\n\n"
+    - "\n"
+    - "。"
+    - "，"
+    - " "
+  encoding_name: "utf-8"
+
+# 服务配置
+server:
+  host: "${SERVER_HOST}"
+  port: 8000
+  debug: false
+  workers: 4
+  reload: false
+  cors_origins:
+    - "*"
+  cors_credentials: true
+  cors_methods:
+    - "*"
+  cors_headers:
+    - "*"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/app.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# 数据库配置
+database:
+  # MySQL配置（用于用户认证和会话存储）
+  mysql_host: "${MYSQL_HOST}"
+  mysql_port: 3306
+  mysql_user: "${MYSQL_USER}"
+  mysql_password: "${MYSQL_PASSWORD}"
+  mysql_database: "${MYSQL_DATABASE}"
+  mysql_charset: "utf8mb4"
+  
+  # SQLite配置（元数据备选）
+  metadata_db_path: "./data/metadata.db"
+  metadata_db_type: "sqlite"
+
+# 认证配置
+auth:
+  secret_key: "${JWT_SECRET_KEY}"
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+
+# 邮件 SMTP 配置（QQ 邮箱）
+smtp:
+  host: "${SMTP_HOST}"
+  port: "${SMTP_PORT}"
+  user: "${SMTP_USER}"
+  password: "${SMTP_PASSWORD}"
+  from: "${EMAIL_FROM}"
+
+# 缓存配置
+cache:
+  enable_embedding_cache: true
+  enable_query_cache: true
+  cache_ttl: 3600
+  cache_max_size: 1000
+  # Redis配置（可选，用于分布式缓存）
+  redis_host: "${REDIS_HOST}"
+  redis_port: 6379
+  redis_db: 0
+  redis_password: "${REDIS_PASSWORD}"
+
+# 监控配置
+monitoring:
+  enable_metrics: true
+  metrics_port: 8001
+  enable_tracing: false
+
+# 提示词配置（可选，不配置则使用默认值）
+# 可以在这里自定义各模式的系统提示词
+prompts:
+  # 普通对话模式提示词
+  chat_system_prompt: ~
+  
+  # RAG 模式系统提示词
+  rag_system_prompt: ~
+  
+  # RAG 模式用户提示词模板（需包含 {context} 和 {question} 占位符）
+  rag_user_prompt: ~
+  
+  # Agent 模式提示词
+  agent_system_prompt: ~
+  
+  # 图像分析提示词
+  vision_system_prompt: ~
+  
+  # 网络搜索增强提示词
+  web_enhanced_system_prompt: ~
+
+# WebSearch 配置
+web_search:
+  # 优先使用 Tavily Search API（需设置 TAVILY_API_KEY 环境变量）
+  # 注册获取免费 API key: https://tavily.com
+  tavily_api_key: "${TAVILY_API_KEY}"
+  search_depth: "advanced"       # basic | advanced — advanced 质量更高但稍慢
+  max_results: 10                # 动态调整（3-10），高质量多返回，低质量少返回
+  language_preference: "zh"
+  topic: "general"               # general | news | finance — 智能检测自动切换
+  default_time_range: "year"     # day | week | month | year — 智能检测自动收紧
+  include_domains:               # 显式限定域名（留空则全中文互联网搜索）
+  exclude_domains:

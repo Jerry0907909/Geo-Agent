@@ -1,0 +1,12 @@
+/* docs/stylesheets/extra.css */
+iframe {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-top: 1em;
+}
+
+[data-md-color-scheme="slate"] iframe {
+    border-color: #404040;
+    /* 反转 Swagger UI 的颜色以适应暗色模式（可选，效果可能不完美） */
+    /* filter: invert(0.9) hue-rotate(180deg); */
+}

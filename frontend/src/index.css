@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 30% 99%;
+    --foreground: 220 24% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 24% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 24% 8%;
+
+    --primary: 225 99% 61%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 216 45% 98%;
+    --secondary-foreground: 220 24% 8%;
+
+    --muted: 220 22% 96%;
+    --muted-foreground: 220 7% 55%;
+
+    --accent: 216 45% 98%;
+    --accent-foreground: 220 24% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 18% 91%;
+    --input: 220 18% 91%;
+    --ring: 225 99% 61%;
+
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 222 26% 9%;
+    --foreground: 210 40% 96%;
+
+    --card: 224 20% 12%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 224 20% 12%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 225 99% 64%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 223 17% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 223 17% 16%;
+    --muted-foreground: 216 18% 68%;
+
+    --accent: 223 17% 16%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 70% 35%;
+    --destructive-foreground: 210 40% 96%;
+
+    --border: 223 13% 20%;
+    --input: 223 13% 20%;
+    --ring: 225 99% 64%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: "PingFang SC", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    letter-spacing: 0;
+    min-height: 100vh;
+    background-image: linear-gradient(180deg, hsl(220 30% 99% / 0.9), hsl(220 30% 99% / 0));
+  }
+
+  .dark body,
+  .dark {
+    background-image: linear-gradient(180deg, hsl(222 26% 9% / 1), hsl(222 26% 9% / 0.6));
+  }
+
+  /* Ensure dark class propagates to body */
+  html.dark body {
+    background-image: linear-gradient(180deg, hsl(222 26% 9% / 1), hsl(222 26% 9% / 0.6));
+  }
+
+  ::selection {
+    background: rgba(57, 100, 254, 0.16);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    letter-spacing: 0;
+  }
+}
+
+@layer utilities {
+  .shadow-ds-surface {
+    box-shadow:
+      rgba(72, 104, 178, 0.04) 0 -2px 2px 0,
+      rgba(106, 111, 117, 0.09) 0 2px 2px 0,
+      rgba(72, 104, 178, 0.08) 0 1px 2px 0;
+  }
+
+  .shadow-ds-shell {
+    box-shadow:
+      rgba(0, 0, 0, 0.02) 0 4px 12px 0,
+      rgba(72, 104, 178, 0.01) 0 2px 2px 0,
+      rgba(72, 104, 178, 0.03) 0 30px 60px 0;
+  }
+
+  .shadow-ds-focus {
+    box-shadow:
+      rgb(183, 200, 254) 0 0 0 1px,
+      rgba(0, 0, 0, 0.04) 0 4px 8px 0;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .animate-in {
+    animation-duration: 150ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fadeIn;
+  }
+
+  .slide-in-from-bottom-2 {
+    --tw-enter-translate-y: 0.5rem;
+    animation-name: slideInFromBottom;
+  }
+
+  @keyframes slideInFromBottom {
+    from {
+      opacity: 0;
+      transform: translateY(var(--tw-enter-translate-y, 0));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .duration-200 {
+    animation-duration: 200ms;
+  }
+
+  .duration-300 {
+    animation-duration: 300ms;
+  }
+}

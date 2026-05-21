@@ -1,0 +1,73 @@
+# Core framework (synchronized to December 2025 stable releases, supporting Pydantic v2 and multi-vector retrieval)
+langchain==1.1.3
+langchain-community==0.4.1
+langchain-core==1.1.2
+langchain-text-splitters==1.0.0
+langchain-openai==0.3.0
+langchain-chroma==0.2.2
+langgraph==0.2.0
+
+# Vector database (compatible with LangChain 1.x and async operations)
+chromadb==1.3.5
+
+# LLM and Embedding (supports Pydantic v2 and GPT-4o multimodal)
+openai==2.9.0
+requests==2.32.5
+
+# Web framework (supports async LangChain chains and Pydantic v2)
+fastapi==0.124.0
+uvicorn==0.38.0
+pydantic==2.12.5
+
+# Data processing (supports time-decay vectors and Pandas 2.x interoperability)
+numpy==2.3.5
+pandas==2.3.3
+dataset
+
+# Text processing (compatible with Python 3.11 and improved NER)
+nltk==3.8.1
+spacy==3.8.11
+
+# Configuration management
+python-dotenv==1.2.1
+pyyaml==6.0.3
+
+# Database (supports LangChain 1.x relational metadata and SQL filtering)
+sqlalchemy==2.0.44
+
+# MySQL database driver
+pymysql==1.1.1
+cryptography==42.0.5
+
+# Authentication (JWT tokens)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Hybrid search (BM25 keyword search)
+rank-bm25==0.2.2
+jieba==0.42.1
+
+# Reranker (cross-encoder for reranking)
+sentence-transformers==2.7.0
+
+# Cache system
+redis==5.0.1
+cachetools==5.3.3
+
+# Logging (supports LangChain tool execution callbacks)
+python-logging-loki
+
+# Utility libraries
+tqdm==4.67.1
+click==8.3.1
+
+# Document parsing (PDF, Word, etc.)
+pypdf==5.1.0
+python-docx==1.1.2
+pymupdf==1.25.1
+
+# Development tools (supports async testing and Python 3.11)
+pytest==9.0.2
+black==25.12.0
+flake8==7.3.0
