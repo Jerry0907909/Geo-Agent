@@ -36,6 +36,7 @@ from src.core.prompts import (
     build_chat_prompt_with_context,
 )
 from src.utils.user_llm import load_user_llm_config
+from src.utils.text_lang import conversation_language
 
 logger = logging.getLogger(__name__)
 
@@ -657,6 +658,10 @@ class FollowUpRequest(BaseModel):
     """推荐问题请求"""
     question: str = Field(..., description="用户问题")
     answer: str = Field(..., description="AI回答")
+    language: Optional[str] = Field(
+        None,
+        description="期望语言：zh / en；不传则根据对话内容自动判断",
+    )
 
 
 @router.post("/follow-up")
@@ -673,19 +678,44 @@ async def generate_follow_up_questions(
         user_llm = load_user_llm_config(db, current_user.id)
         llm = create_llm_provider(enable_thinking=False, user_llm_config=user_llm)
 
-        prompt = f"""基于以下对话内容，生成3个用户可能想要继续追问的问题。
+        lang = (request.language or "").strip().lower()
+        if lang in ("zh", "zh-cn", "chinese"):
+            use_zh = True
+        elif lang in ("en", "english"):
+            use_zh = False
+        else:
+            use_zh = conversation_language(request.question, request.answer) == "zh"
+
+        if use_zh:
+            prompt = f"""基于以下对话内容，生成 3 个用户可能想要继续追问的问题。
 
 要求：
+- 必须使用简体中文
 - 每个问题必须与上述具体对话内容直接相关，不要生成泛泛的问题
 - 问题应自然延伸对话，像真人会追问的那样
-- 简洁明了，每个问题不超过30字
-- 避免生成"能详细解释一下吗"这类笼统问题
+- 简洁明了，每个问题不超过 30 字
+- 避免生成「能详细解释一下吗」这类笼统问题
 
 用户问题：{request.question}
 
 AI回答：{request.answer[:800]}
 
-请直接输出3个问题，每行一个，不要编号："""
+请直接输出 3 个问题，每行一个，不要编号："""
+        else:
+            prompt = f"""Based on the conversation below, generate 3 follow-up questions the user might ask next.
+
+Requirements:
+- Write every question in English only
+- Each question must relate directly to this specific exchange (no generic prompts)
+- Sound natural, like a curious follow-up a real user would ask
+- Keep each question concise (under 120 characters)
+- Avoid vague questions such as "Can you explain more?"
+
+User question: {request.question}
+
+AI answer: {request.answer[:800]}
+
+Output exactly 3 questions, one per line, without numbering:"""
         
         response = llm.generate(prompt)
         

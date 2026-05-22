@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react"
+import { useI18nStore } from "@/i18n"
 import { chatService, type Document, type Collection, type FileTypeStat } from "@/services/api"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
@@ -64,7 +65,10 @@ interface LiteratureCardProps {
 }
 
 const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, isDeleting }) => {
+  const t = useI18nStore((s) => s.t)
+  const language = useI18nStore((s) => s.language)
   const [isHovered, setIsHovered] = useState(false)
+  const dateLocale = language === "zh-CN" ? "zh-CN" : "en-US"
   
   const getFileIcon = (type: string) => {
     const iconClass = "h-5 w-5"
@@ -135,8 +139,8 @@ const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, 
             >
               {doc.file_type?.toUpperCase() || 'OTHER'}
             </span>
-            <span>{doc.chunks} 片段</span>
-            <span>{doc.date ? new Date(doc.date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : "—"}</span>
+            <span>{t("documents.chunkCount", { count: doc.chunks })}</span>
+            <span>{doc.date ? new Date(doc.date).toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' }) : "—"}</span>
           </div>
         </div>
         
@@ -150,7 +154,7 @@ const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, 
           <button
             onClick={(e) => { e.stopPropagation(); onView() }}
             className="rounded-full p-2 text-slate-500 transition-colors hover:bg-secondary"
-            title="预览"
+            title={t("documents.preview")}
           >
             <Eye className="h-4 w-4" />
           </button>
@@ -161,7 +165,7 @@ const LiteratureCard: React.FC<LiteratureCardProps> = ({ doc, onView, onDelete, 
               "rounded-full p-2 transition-colors hover:bg-red-50 dark:hover:bg-red-900/30",
               isDeleting ? "text-slate-400 dark:text-slate-500" : "text-red-500 dark:text-red-400"
             )}
-            title="删除"
+            title={t("documents.delete")}
           >
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
@@ -182,6 +186,7 @@ interface CollectionCardProps {
 }
 
 const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected, onSelect, onRename, onDelete, isDeleting }) => {
+  const t = useI18nStore((s) => s.t)
   const [isHovered, setIsHovered] = useState(false)
   
   return (
@@ -218,11 +223,11 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
               </p>
               {isSelected && (
                 <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-white">
-                  上传目标
+                  {t("documents.uploadTargetBadge")}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{collection.count} 个片段</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("documents.segmentCount", { count: collection.count })}</p>
           </div>
         </div>
         <div 
@@ -235,7 +240,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
           <button
             onClick={onRename}
             className="rounded-full p-1.5 text-slate-500 transition-colors hover:bg-secondary"
-            title="重命名"
+            title={t("common.rename")}
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -246,7 +251,7 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ collection, isSelected,
               "rounded-full p-1.5 transition-colors hover:bg-red-50 dark:hover:bg-red-900/30",
               isDeleting ? "text-slate-400 dark:text-slate-500" : "text-red-500 dark:text-red-400"
             )}
-            title="删除集合"
+            title={t("documents.deleteCollection")}
           >
             {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
           </button>
@@ -263,17 +268,18 @@ interface EmptyStateProps {
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ type, onAction }) => {
+  const t = useI18nStore((s) => s.t)
   const config = {
     literature: {
       icon: <FileText className="h-12 w-12" />,
-      title: "暂无内容",
-      description: "点击右上角「上传知识库」按钮，开始管理你的知识库内容",
-      action: "上传知识库",
+      title: t("documents.emptyNoContent"),
+      description: t("documents.emptyNoContentDesc"),
+      action: t("documents.upload"),
     },
     collection: {
       icon: <FolderOpen className="h-10 w-10" />,
-      title: "暂无集合",
-      description: "知识库集合为空",
+      title: t("documents.emptyNoCollection"),
+      description: t("documents.emptyNoCollectionDesc"),
       action: null,
     }
   }
@@ -314,7 +320,9 @@ interface ConfirmModalProps {
   isLoading?: boolean
 }
 
-const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onConfirm, onCancel, isLoading }) => (
+const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onConfirm, onCancel, isLoading }) => {
+  const t = useI18nStore((s) => s.t)
+  return (
   <AnimatePresence>
     {isOpen && (
       <motion.div
@@ -344,7 +352,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onC
               disabled={isLoading}
               className="rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               onClick={onConfirm}
@@ -352,14 +360,15 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onC
               className="flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600"
             >
               {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              确认删除
+              {t("documents.confirmDeleteBtn")}
             </button>
           </div>
         </motion.div>
       </motion.div>
     )}
   </AnimatePresence>
-)
+  )
+}
 
 // 输入弹窗组件（用于创建/重命名）
 interface InputModalProps {
@@ -376,6 +385,7 @@ interface InputModalProps {
 const InputModal: React.FC<InputModalProps> = ({ 
   isOpen, title, placeholder, defaultValue = "", confirmText, onConfirm, onCancel, isLoading 
 }) => {
+  const t = useI18nStore((s) => s.t)
   const [value, setValue] = useState(defaultValue)
   
   useEffect(() => {
@@ -425,7 +435,7 @@ const InputModal: React.FC<InputModalProps> = ({
             />
             
             <p className="text-xs mb-4 text-slate-500 dark:text-slate-400">
-              名称只能包含字母、数字、下划线和中划线
+              {t("documents.nameValidation")}
             </p>
             
             <div className="flex gap-3 justify-end">
@@ -434,7 +444,7 @@ const InputModal: React.FC<InputModalProps> = ({
                 disabled={isLoading}
                 className="rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleConfirm}
@@ -589,7 +599,9 @@ interface ImageViewerProps {
 
 const ImageViewer: React.FC<ImageViewerProps> = ({ 
   image, isOpen, onClose, onPrev, onNext, currentIndex, totalCount 
-}) => (
+}) => {
+  const t = useI18nStore((s) => s.t)
+  return (
   <AnimatePresence>
     {isOpen && image && (
       <motion.div
@@ -608,13 +620,13 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
         >
           <img 
             src={image.base64} 
-            alt={`图片 ${currentIndex + 1}`}
+            alt={t("documents.imageAlt", { index: currentIndex + 1 })}
             className="max-w-full max-h-[85vh] object-contain rounded-lg"
           />
           
           {/* 图片信息 */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-lg text-sm">
-            第 {image.page} 页 · {currentIndex + 1} / {totalCount} · {image.width} × {image.height}
+            {t("documents.pageImageInfo", { page: image.page, current: currentIndex + 1, total: totalCount, width: image.width, height: image.height })}
           </div>
           
           {/* 关闭按钮 */}
@@ -652,7 +664,8 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
       </motion.div>
     )}
   </AnimatePresence>
-)
+  )
+}
 
 // 文献内容查看/编辑弹窗
 interface DocumentViewModalProps {
@@ -675,6 +688,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
   isOpen, doc, content, images, isLoading, isEditing, isSaving, editedContent,
   onClose, onEdit, onSave, onCancelEdit, onContentChange
 }) => {
+  const t = useI18nStore((s) => s.t)
   const [activeTab, setActiveTab] = useState<'text' | 'images'>('text')
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(0)
@@ -719,10 +733,10 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                     <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-lg font-semibold truncate text-slate-800 dark:text-slate-200">{doc?.source || "文件内容"}</h3>
+                    <h3 className="text-lg font-semibold truncate text-slate-800 dark:text-slate-200">{doc?.source || t("documents.fileContentTitle")}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {doc?.chunks} 个片段 · {doc?.collection || "默认集合"}
-                      {hasImages && ` · ${images.length} 张图片`}
+                      {t("documents.segmentCount", { count: doc?.chunks ?? 0 })} · {doc?.collection || t("documents.defaultCollection")}
+                      {hasImages && ` · ${t("documents.imageCountShort", { count: images.length })}`}
                     </p>
                   </div>
                 </div>
@@ -745,7 +759,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      文本内容
+                      {t("documents.textContent")}
                     </span>
                   </button>
                   <button
@@ -761,7 +775,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      图片 ({images.length})
+                      {t("documents.imagesTab", { count: images.length })}
                     </span>
                   </button>
                 </div>
@@ -778,7 +792,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                     value={editedContent}
                     onChange={(e) => onContentChange(e.target.value)}
                     className="w-full h-[50vh] p-4 rounded-lg border text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
-                    placeholder="输入知识库内容..."
+                    placeholder={t("documents.editContentPlaceholder")}
                   />
                 ) : activeTab === 'text' ? (
                   <div className="h-[50vh] overflow-auto rounded-[24px] bg-secondary p-4">
@@ -794,7 +808,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                         <svg className="h-16 w-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p className="text-sm">该文件暂无图片</p>
+                        <p className="text-sm">{t("documents.noImagesInFile")}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -810,7 +824,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                             <div className="aspect-[4/3] bg-slate-100 dark:bg-slate-700">
                               <img 
                                 src={img.base64} 
-                                alt={`第 ${img.page} 页 - 图片 ${img.index + 1}`}
+                                alt={t("chat.sourceImageAlt", { source: doc?.source || "", page: img.page })}
                                 className="w-full h-full object-contain"
                               />
                             </div>
@@ -822,7 +836,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                             </div>
                             {/* 图片信息 */}
                             <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 text-xs bg-black/60 text-white">
-                              第 {img.page} 页 · {img.width}×{img.height}
+                              {t("documents.pageImageInfo", { page: img.page, current: img.index + 1, total: images.length, width: img.width, height: img.height })}
                             </div>
                           </motion.div>
                         ))}
@@ -841,7 +855,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       disabled={isSaving}
                       className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
                     >
-                      <X className="h-4 w-4" /> 取消
+                      <X className="h-4 w-4" /> {t("common.cancel")}
                     </button>
                     <button
                       onClick={onSave}
@@ -849,7 +863,7 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/95"
                     >
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      保存
+                      {t("common.save")}
                     </button>
                   </>
                 ) : (
@@ -858,14 +872,14 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
                       onClick={onClose}
                       className="rounded-full bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80"
                     >
-                      关闭
+                      {t("common.close")}
                     </button>
                     <button
                       onClick={onEdit}
                       disabled={isLoading}
                       className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/95"
                     >
-                      <Edit className="h-4 w-4" /> 编辑
+                      <Edit className="h-4 w-4" /> {t("common.edit")}
                     </button>
                   </>
                 )}
@@ -892,6 +906,9 @@ const DocumentViewModal: React.FC<DocumentViewModalProps> = ({
 // ==================== 主组件 ====================
 
 export default function DocumentsPage() {
+  const t = useI18nStore((s) => s.t)
+  const language = useI18nStore((s) => s.language)
+
   // 数据状态
   const [documents, setDocuments] = useState<Document[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
@@ -1097,31 +1114,32 @@ export default function DocumentsPage() {
     const fileList = Array.from(files)
 
     if (fileList.length === 1) {
-      startProgress("正在上传文件", `正在处理 ${fileList[0].name}...`)
+      startProgress(t("documents.progressUploadFile"), t("documents.uploadFileProcessing", { name: fileList[0].name }))
       try {
         const result = await chatService.uploadDocument(fileList[0], targetCollection)
         await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
         await completeProgress()
-        showToast(`上传成功！${result.message || ''}`, 'success')
+        showToast(t("documents.uploadSuccessDetail", { message: result.message || '' }), 'success')
       } catch (error: any) {
         cancelProgress()
-        showToast(`上传失败: ${error.response?.data?.detail || error.message}`, 'error')
+        showToast(t("documents.uploadFailed", { detail: error.response?.data?.detail || error.message }), 'error')
       } finally {
         setIsUploading(false)
         e.target.value = ""
       }
     } else {
-      startProgress("正在批量上传", `共 ${fileList.length} 个文件...`)
+      startProgress(t("documents.progressBatchUpload"), t("documents.uploadBatchProcessing", { count: fileList.length }))
       try {
         const result = await chatService.uploadDocumentsBatch(fileList, targetCollection)
         await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
         await completeProgress()
         const ok = result.results?.length || 0
         const err = result.errors?.length || 0
-        showToast(`上传完成: ${ok} 成功${err > 0 ? `, ${err} 失败` : ''}`, err > 0 ? 'error' : 'success')
+        const failedSuffix = err > 0 ? (language === "zh-CN" ? `, ${err} 失败` : `, ${err} failed`) : ""
+        showToast(t("documents.uploadBatchResult", { ok, failed: failedSuffix }), err > 0 ? 'error' : 'success')
       } catch (error: any) {
         cancelProgress()
-        showToast(`批量上传失败: ${error.response?.data?.detail || error.message}`, 'error')
+        showToast(t("documents.uploadBatchFailed", { detail: error.response?.data?.detail || error.message }), 'error')
       } finally {
         setIsUploading(false)
         e.target.value = ""
@@ -1132,23 +1150,22 @@ export default function DocumentsPage() {
   // 重建索引
   const handleRebuildIndex = async () => {
     setIsRebuilding(true)
-    startProgress("正在重建索引", "正在扫描知识库目录...")
+    startProgress(t("documents.progressRebuild"), t("documents.scanDirSubtitle"))
     
     try {
       const result = await chatService.rebuildIndex()
-      updateMessage("正在更新数据...")
+      updateMessage(t("documents.progressUpdating"))
       await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
       await completeProgress()
       
-      // 根据结果显示不同的提示
       if (result.num_documents === 0 && result.num_chunks === 0) {
-        showToast("目录中暂无新文件，已上传的文件不受影响", 'success')
+        showToast(t("documents.rebuildNoNewFiles"), 'success')
       } else {
-        showToast(`索引重建成功！新增 ${result.num_documents || 0} 篇文件，${result.num_chunks || 0} 个片段`, 'success')
+        showToast(t("documents.rebuildSuccess", { files: result.num_documents || 0, chunks: result.num_chunks || 0 }), 'success')
       }
     } catch (error: any) {
       cancelProgress()
-      showToast(`索引重建失败: ${error.response?.data?.detail || error.message}`, 'error')
+      showToast(t("documents.rebuildFailed", { detail: error.response?.data?.detail || error.message }), 'error')
     } finally {
       setIsRebuilding(false)
     }
@@ -1158,22 +1175,22 @@ export default function DocumentsPage() {
   const handleDeleteDocument = (source: string, collection?: string) => {
     setConfirmModal({
       isOpen: true,
-      title: "删除文件",
-      message: `确定要删除「${source}」吗？此操作不可恢复。`,
+      title: t("documents.deleteFileTitle"),
+      message: t("documents.deleteFileMessage", { name: source }),
       onConfirm: async () => {
         setDeletingDoc(source)
         setConfirmModal(prev => ({ ...prev, isOpen: false }))
-        startProgress("正在删除文件", `正在删除 ${source}...`)
+        startProgress(t("documents.progressDeleteFile"), `${source}...`)
         
         try {
           await chatService.deleteDocumentBySource(source, collection)
-          updateMessage("正在更新列表...")
+          updateMessage(t("documents.progressUpdating"))
           await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
           await completeProgress()
-          showToast("文件删除成功", 'success')
+          showToast(t("documents.deleteFileSuccess"), 'success')
         } catch (error: any) {
           cancelProgress()
-          showToast(`删除失败: ${error.response?.data?.detail || error.message}`, 'error')
+          showToast(t("documents.deleteFailed", { detail: error.response?.data?.detail || error.message }), 'error')
         } finally {
           setDeletingDoc(null)
         }
@@ -1185,22 +1202,22 @@ export default function DocumentsPage() {
   const handleDeleteCollection = (name: string) => {
     setConfirmModal({
       isOpen: true,
-      title: "删除知识库",
-      message: `确定要删除知识库「${name}」吗？此操作将删除该集合下的所有数据。`,
+      title: t("documents.deleteCollectionTitle"),
+      message: t("documents.deleteCollectionMessage", { name }),
       onConfirm: async () => {
         setDeletingCollection(name)
         setConfirmModal(prev => ({ ...prev, isOpen: false }))
-        startProgress("正在删除知识库", `正在删除 ${name}...`)
+        startProgress(t("documents.progressDeleteCollection"), `${name}...`)
         
         try {
           await chatService.deleteCollection(name)
-          updateMessage("正在更新列表...")
+          updateMessage(t("documents.progressUpdating"))
           await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
           await completeProgress()
-          showToast("知识库删除成功", 'success')
+          showToast(t("documents.deleteCollectionSuccess"), 'success')
         } catch (error: any) {
           cancelProgress()
-          showToast(`删除失败: ${error.response?.data?.detail || error.message}`, 'error')
+          showToast(t("documents.deleteFailed", { detail: error.response?.data?.detail || error.message }), 'error')
         } finally {
           setDeletingCollection(null)
         }
@@ -1212,25 +1229,25 @@ export default function DocumentsPage() {
   const handleCreateCollection = () => {
     setInputModal({
       isOpen: true,
-      title: "创建知识库",
-      placeholder: "请输入知识库名称",
+      title: t("documents.createCollectionTitle"),
+      placeholder: t("documents.createCollectionPlaceholder"),
       defaultValue: "",
-      confirmText: "创建",
+      confirmText: t("documents.createBtn"),
       isLoading: false,
       onConfirm: async (name: string) => {
         setInputModal(prev => ({ ...prev, isLoading: true }))
-        startProgress("正在创建知识库", `正在创建 ${name}...`)
+        startProgress(t("documents.progressCreateCollection"), `${name}...`)
         
         try {
           await chatService.createCollection(name)
-          updateMessage("正在更新列表...")
+          updateMessage(t("documents.progressUpdating"))
           await fetchCollections()
           await completeProgress()
-          showToast(`知识库「${name}」创建成功`, 'success')
+          showToast(t("documents.createCollectionSuccess", { name }), 'success')
           setInputModal(prev => ({ ...prev, isOpen: false }))
         } catch (error: any) {
           cancelProgress()
-          showToast(`创建失败: ${error.response?.data?.detail || error.message}`, 'error')
+          showToast(t("documents.createCollectionFailed", { detail: error.response?.data?.detail || error.message }), 'error')
         } finally {
           setInputModal(prev => ({ ...prev, isLoading: false }))
         }
@@ -1242,10 +1259,10 @@ export default function DocumentsPage() {
   const handleRenameCollection = (oldName: string) => {
     setInputModal({
       isOpen: true,
-      title: "重命名知识库",
-      placeholder: "请输入新名称",
+      title: t("documents.renameCollectionTitle"),
+      placeholder: t("documents.renamePlaceholder"),
       defaultValue: oldName,
-      confirmText: "确认",
+      confirmText: t("common.confirm"),
       isLoading: false,
       onConfirm: async (newName: string) => {
         if (newName === oldName) {
@@ -1254,18 +1271,18 @@ export default function DocumentsPage() {
         }
         
         setInputModal(prev => ({ ...prev, isLoading: true }))
-        startProgress("正在重命名知识库", `正在将 ${oldName} 重命名为 ${newName}...`)
+        startProgress(t("documents.progressRenameCollection"), `${oldName} → ${newName}`)
         
         try {
           await chatService.renameCollection(oldName, newName)
-          updateMessage("正在更新列表...")
+          updateMessage(t("documents.progressUpdating"))
           await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
           await completeProgress()
-          showToast(`知识库已重命名为「${newName}」`, 'success')
+          showToast(t("documents.renameCollectionSuccess", { name: newName }), 'success')
           setInputModal(prev => ({ ...prev, isOpen: false }))
         } catch (error: any) {
           cancelProgress()
-          showToast(`重命名失败: ${error.response?.data?.detail || error.message}`, 'error')
+          showToast(t("documents.renameCollectionFailed", { detail: error.response?.data?.detail || error.message }), 'error')
         } finally {
           setInputModal(prev => ({ ...prev, isLoading: false }))
         }
@@ -1290,7 +1307,7 @@ export default function DocumentsPage() {
         setDocImages(data.images)
       }
     } catch (error: any) {
-      setDocContent(`获取内容失败: ${error.response?.data?.detail || error.message}`)
+      setDocContent(t("documents.fetchContentFailed", { detail: error.response?.data?.detail || error.message }))
       setEditedContent("")
       setDocImages([])
     } finally {
@@ -1308,9 +1325,9 @@ export default function DocumentsPage() {
       setDocContent(editedContent)
       setIsEditing(false)
       await Promise.all([fetchDocuments(selectedFileType), fetchCollections()])
-      showToast("文件内容更新成功", 'success')
+      showToast(t("documents.saveContentSuccess"), 'success')
     } catch (error: any) {
-      showToast(`保存失败: ${error.response?.data?.detail || error.message}`, 'error')
+      showToast(t("documents.saveContentFailed", { detail: error.response?.data?.detail || error.message }), 'error')
     } finally {
       setIsSaving(false)
     }
@@ -1329,13 +1346,13 @@ export default function DocumentsPage() {
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 px-6 py-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">知识库管理</h1>
-            <p className="mt-1 text-sm text-muted-foreground">用更安静的工作区管理知识库集合、上传资料和预览内容。</p>
+            <h1 className="text-xl font-semibold text-foreground">{t("documents.title")}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t("documents.pageDescQuiet")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {selectedCollection && (
               <span className="rounded-full border border-[#b7c8fe] bg-[#edf3fe] px-3 py-1.5 text-sm text-primary">
-                上传目标：{selectedCollection}
+                {t("documents.uploadTarget", { name: selectedCollection })}
               </span>
             )}
             <button
@@ -1347,7 +1364,7 @@ export default function DocumentsPage() {
               )}
             >
               {isRebuilding ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              扫描目录
+              {t("documents.scanDirectory")}
             </button>
             <input
               ref={fileInputRef}
@@ -1364,21 +1381,21 @@ export default function DocumentsPage() {
               className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/95 disabled:opacity-50"
             >
               {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              上传文件
+              {t("documents.upload")}
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard title="总文件数" value={totalFiles} icon={<FolderOpen className="h-5 w-5" />} color={colors.primary} />
-          <StatCard title="总片段数" value={totalChunks} icon={<FileText className="h-5 w-5" />} color="#00B42A" />
-          <StatCard title="知识库数" value={collections.length} icon={<Database className="h-5 w-5" />} color="#722ED1" />
-          <StatCard title="文件类型" value={activeFileTypes.length} icon={<Files className="h-5 w-5" />} color="#FF7D00" />
+          <StatCard title={t("documents.statTotalFiles")} value={totalFiles} icon={<FolderOpen className="h-5 w-5" />} color={colors.primary} />
+          <StatCard title={t("documents.statTotalChunks")} value={totalChunks} icon={<FileText className="h-5 w-5" />} color="#00B42A" />
+          <StatCard title={t("documents.statCollections")} value={collections.length} icon={<Database className="h-5 w-5" />} color="#722ED1" />
+          <StatCard title={t("documents.statFileTypes")} value={activeFileTypes.length} icon={<Files className="h-5 w-5" />} color="#FF7D00" />
         </div>
 
         <div className="rounded-[28px] border border-border/80 bg-white p-3 shadow-ds-surface dark:bg-card">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2 text-sm text-muted-foreground">筛选</span>
+            <span className="px-2 text-sm text-muted-foreground">{t("documents.filter")}</span>
           <button
             onClick={() => handleFileTypeChange(null)}
             className={cn(
@@ -1388,7 +1405,7 @@ export default function DocumentsPage() {
                   : "text-slate-600 dark:text-slate-300 hover:bg-secondary"
             )}
           >
-            全部 ({totalFiles})
+            {t("documents.allWithCount", { count: totalFiles })}
           </button>
           {activeFileTypes.map((stat) => (
             <button
@@ -1412,12 +1429,12 @@ export default function DocumentsPage() {
               <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
                 <div>
                   <h2 className="text-base font-medium text-foreground">
-                    {selectedFileType ? `${fileTypeStats.find(s => s.type === selectedFileType)?.label || ''} 文件` : '全部文件'}
+                    {selectedFileType ? t("documents.fileTypeFiles", { label: fileTypeStats.find(s => s.type === selectedFileType)?.label || '' }) : t("documents.allFiles")}
                   </h2>
-                  <p className="text-xs text-muted-foreground">{documents.length} 个文件</p>
+                  <p className="text-xs text-muted-foreground">{t("documents.fileCount", { count: documents.length })}</p>
                 </div>
                 <div className="rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground">
-                  {selectedCollection ? `当前集合：${selectedCollection}` : "默认集合"}
+                  {selectedCollection ? t("documents.currentCollection", { name: selectedCollection }) : t("documents.defaultCollection")}
                 </div>
               </div>
               
@@ -1452,11 +1469,11 @@ export default function DocumentsPage() {
                 <div>
                   <h2 className="flex items-center gap-2 text-base font-medium text-foreground">
                     <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    知识库集合
+                    {t("documents.collections")}
                   </h2>
                   {selectedCollection && (
                     <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">
-                      点击其他集合切换，或点击已选集合取消
+                      {t("documents.collectionSwitchHint")}
                     </p>
                   )}
                 </div>
@@ -1465,7 +1482,7 @@ export default function DocumentsPage() {
                   className="inline-flex items-center gap-1 rounded-full border border-border/80 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  新建
+                  {t("documents.newShort")}
                 </button>
               </div>
               <div className="max-h-[300px] overflow-auto p-4">
@@ -1494,7 +1511,7 @@ export default function DocumentsPage() {
             <div className="rounded-[28px] border border-border/80 bg-white p-5 shadow-ds-surface dark:bg-card">
               <h2 className="mb-3 flex items-center gap-2 text-base font-medium text-foreground">
                 <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                批量导入
+                {t("documents.batchImport")}
               </h2>
               <button
                 onClick={handleRebuildIndex}
@@ -1507,20 +1524,20 @@ export default function DocumentsPage() {
                 {isRebuilding ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    扫描中...
+                    {t("documents.scanning")}
                   </>
                 ) : (
                   <>
                     <RefreshCw className="h-4 w-4" />
-                    扫描目录
+                    {t("documents.scanDirectory")}
                   </>
                 )}
               </button>
               <p className="mt-3 text-xs text-muted-foreground">
-                扫描 data/documents 目录导入文件
+                {t("documents.scanDirSubtitle")}
               </p>
               <div className="mt-4 rounded-[22px] bg-secondary px-4 py-4 text-sm text-muted-foreground">
-                适合批量导入文件、维护集合结构，并继续沿用已有预览与编辑流程。
+                {t("documents.batchImportNote")}
               </div>
             </div>
           </div>

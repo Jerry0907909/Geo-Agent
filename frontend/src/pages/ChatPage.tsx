@@ -25,6 +25,7 @@ import {
   Settings2,
   X,
 } from "lucide-react"
+import { translateStreamStatus, useI18nStore } from "@/i18n"
 import {
   chatService,
   conversationService,
@@ -40,29 +41,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import ThinkingWave from "@/components/ThinkingWave"
+import StreamingMessage from "@/components/StreamingMessage"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useChatStore } from "@/store/useChatStore"
+import { conversationLanguage } from "@/lib/detectLanguage"
 import { cn } from "@/lib/utils"
 import { COLLAPSE_REVEAL, REDUCED_FADE, SOFT_SPRING, STAGGER_ITEM, STAGGER_PARENT } from "@/lib/motion"
 
 const MODE_CONFIG = {
-  chat: { label: "普通对话", icon: Bot },
-  rag: { label: "知识库检索", icon: Search },
+  chat: { labelKey: "chat.chatMode", icon: Bot },
+  rag: { labelKey: "chat.ragMode", icon: Search },
 }
 
-const SUGGESTED_QUESTIONS = [
-  "什么是地质构造？",
-  "介绍一下板块运动理论",
-  "地震是如何形成的？",
-  "常见的岩石类型有哪些？",
-  "如何进行地质勘探？",
-  "地下水资源的分布特点",
-]
-
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-const MESSAGE_ERROR_TEXT = "抱歉，我遇到了一些问题，请稍后再试。"
 
 export default function ChatPage() {
+  const t = useI18nStore((s) => s.t)
+  const language = useI18nStore((s) => s.language)
   const { conversationId } = useParams<{ conversationId?: string }>()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -112,7 +107,20 @@ export default function ChatPage() {
     }),
     []
   )
-  const visibleSuggestedQuestions = useMemo(() => SUGGESTED_QUESTIONS.slice(0, 4), [])
+  const displayStatusMessage = useCallback(
+    (message: string) => translateStreamStatus(message, t),
+    [t, language]
+  )
+
+  const visibleSuggestedQuestions = useMemo(
+    () => [
+      t("chat.suggest1"),
+      t("chat.suggest2"),
+      t("chat.suggest3"),
+      t("chat.suggest4"),
+    ],
+    [t, language]
+  )
   const motionListItem = shouldReduceMotion ? REDUCED_FADE : STAGGER_ITEM
   const collapseMotion = shouldReduceMotion ? REDUCED_FADE : COLLAPSE_REVEAL
 
@@ -120,7 +128,8 @@ export default function ChatPage() {
 
   const generateFollowUpQuestions = useCallback(async (question: string, answer: string) => {
     try {
-      const result = await chatService.generateFollowUp(question, answer)
+      const lang = conversationLanguage(question, answer)
+      const result = await chatService.generateFollowUp(question, answer, lang)
       if (result.questions?.length) {
         setFollowUpQuestions(result.questions.slice(0, 3))
         return
@@ -234,7 +243,7 @@ export default function ChatPage() {
       const imagePreviewToShow = imagePreview
       const userMsg: ChatMessage = {
         role: "user",
-        content: input || "请分析这张图片",
+        content: input || t("chat.analyzeImagePrompt"),
         metadata: imagePreviewToShow ? { image: imagePreviewToShow } : undefined,
       }
 
@@ -293,7 +302,7 @@ export default function ChatPage() {
               }
               break
             case "status":
-              setStatusMessage(streamEvent.message || "")
+              setStatusMessage(displayStatusMessage(streamEvent.message || ""))
               break
             case "content":
               if (!hasAddedPlaceholder) {
@@ -357,12 +366,12 @@ export default function ChatPage() {
           if (lastMessage?.role === "assistant") {
             updated[updated.length - 1] = {
               role: "assistant",
-              content: MESSAGE_ERROR_TEXT,
+              content: t("chat.errorMessage"),
             }
           } else {
             updated.push({
               role: "assistant",
-              content: MESSAGE_ERROR_TEXT,
+              content: t("chat.errorMessage"),
             })
           }
 
@@ -376,6 +385,7 @@ export default function ChatPage() {
     },
     [
       currentConversationId,
+      displayStatusMessage,
       generateFollowUpQuestions,
       imagePreview,
       input,
@@ -386,6 +396,7 @@ export default function ChatPage() {
       navigate,
       selectedImage,
       setCurrentConversationId,
+      t,
       topK,
       webSearchEnabled,
     ]
@@ -411,7 +422,7 @@ export default function ChatPage() {
       if (!file) continue
 
       if (file.size > MAX_IMAGE_SIZE) {
-        window.alert("图片大小不能超过 5MB")
+        window.alert(t("chat.imageTooBig"))
         return
       }
 
@@ -467,7 +478,7 @@ export default function ChatPage() {
                   >
                     <motion.div variants={motionListItem} className="space-y-3">
                       <p className="text-sm text-muted-foreground">Geo-Agent</p>
-                      <h1 className="text-2xl font-semibold tracking-tight text-foreground">今天想问什么？</h1>
+                      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("chat.welcome")}</h1>
                     </motion.div>
 
                     <motion.div variants={STAGGER_PARENT} className="flex flex-wrap justify-center gap-2">
@@ -504,15 +515,12 @@ export default function ChatPage() {
                   {message.role === "assistant" ? (
                     <div className="space-y-3">
                       <div className="max-w-[700px] text-foreground">
-                        {isLoading && index === messages.length - 1 && streamingContent ? (
-                          <div className="leading-7">
-                            {renderMarkdown(streamingContent)}
-                            <motion.span
-                              className="ml-1 inline-block h-5 w-0.5 bg-primary"
-                              animate={{ opacity: [1, 0] }}
-                              transition={{ duration: 0.6, repeat: Number.POSITIVE_INFINITY }}
-                            />
-                          </div>
+                        {isLoading && index === messages.length - 1 ? (
+                          <StreamingMessage
+                            content={streamingContent}
+                            isStreaming={isLoading}
+                            className="leading-7"
+                          />
                         ) : (
                           renderMarkdown(message.content)
                         )}
@@ -529,7 +537,7 @@ export default function ChatPage() {
                                 ? "border-[#b7c8fe] bg-[#edf3fe] text-primary"
                                 : "border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
                             )}
-                            title="复制"
+                            title={t("chat.copy")}
                           >
                             {copiedIndex === index ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                           </button>
@@ -542,7 +550,7 @@ export default function ChatPage() {
                               }
                             }}
                             className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-border/80 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                            title="重新生成"
+                            title={t("chat.regenerate")}
                           >
                             <RotateCcw className="h-4 w-4" />
                           </button>
@@ -553,7 +561,7 @@ export default function ChatPage() {
                               className="inline-flex items-center gap-2 rounded-full border border-border/80 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                             >
                               <BookOpen className="h-4 w-4" />
-                              来源
+                              {t("chat.sources")}
                             </button>
                           )}
                         </motion.div>
@@ -591,7 +599,7 @@ export default function ChatPage() {
                         {message.metadata?.image && (
                           <img
                             src={message.metadata.image}
-                            alt="用户上传的图片"
+                            alt={t("chat.userImageAlt")}
                             className="mb-3 max-h-64 rounded-2xl border border-border/70"
                           />
                         )}
@@ -613,7 +621,7 @@ export default function ChatPage() {
                     exit="exit"
                     transition={SOFT_SPRING}
                   >
-                    <ThinkingWave text={statusMessage || "正在思考"} />
+                    <ThinkingWave text={statusMessage || t("chat.thinking")} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -637,7 +645,7 @@ export default function ChatPage() {
                       className="px-2 pt-2"
                     >
                       <div className="relative inline-flex overflow-hidden rounded-[20px] border border-border/80">
-                        <img src={imagePreview} alt="预览" className="max-h-32 rounded-[20px]" />
+                        <img src={imagePreview} alt={t("chat.previewAlt")} className="max-h-32 rounded-[20px]" />
                         <button
                           type="button"
                           onClick={handleRemoveImage}
@@ -655,7 +663,7 @@ export default function ChatPage() {
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  placeholder={selectedImage ? "描述你想了解的内容..." : "输入问题，可直接粘贴图片..."}
+                  placeholder={selectedImage ? t("chat.placeholderImage") : t("chat.placeholder")}
                   rows={3}
                   className="min-h-[92px] w-full resize-none border-none bg-transparent px-3 pt-3 text-base leading-6 text-foreground outline-none placeholder:text-muted-foreground"
                 />
@@ -686,7 +694,7 @@ export default function ChatPage() {
                           )}
                           <span className="relative flex items-center gap-2">
                             <Icon className="h-4 w-4" />
-                            {config.label}
+                            {t(config.labelKey)}
                           </span>
                         </motion.button>
                       )
@@ -704,7 +712,7 @@ export default function ChatPage() {
                       )}
                     >
                       <Globe className="h-4 w-4" />
-                      联网
+                      {t("chat.webSearch")}
                     </motion.button>
                     {mode === "rag" && (
                       <button
@@ -713,7 +721,7 @@ export default function ChatPage() {
                         className="inline-flex items-center gap-2 rounded-full border border-border/80 px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary"
                       >
                         <Settings2 className="h-4 w-4" />
-                        设置
+                        {t("chat.settingsBtn")}
                       </button>
                     )}
                     {sources.length > 0 && (
@@ -723,14 +731,14 @@ export default function ChatPage() {
                         className="inline-flex items-center gap-2 rounded-full border border-border/80 px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary"
                       >
                         <BookOpen className="h-4 w-4" />
-                        来源 {sources.length > 0 ? `(${sources.length})` : ""}
+                        {sources.length > 0 ? t("chat.sourceCount", { count: sources.length }) : t("chat.sources")}
                       </button>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between gap-3 md:justify-end">
                     <div className="min-h-[20px] text-xs text-muted-foreground">
-                      {statusMessage || (selectedImage ? "已附带图片输入" : "")}
+                      {statusMessage || (selectedImage ? t("chat.imageAttached") : "")}
                     </div>
                     <button
                       type="submit"
@@ -751,15 +759,15 @@ export default function ChatPage() {
         <DialogContent className="max-w-[520px] gap-0 overflow-hidden p-0">
           <div className="border-b border-border/70 px-6 py-5">
             <DialogHeader className="text-left">
-              <DialogTitle>检索设置</DialogTitle>
-              <DialogDescription>只在需要时展开，主界面保持简洁。</DialogDescription>
+              <DialogTitle>{t("chat.ragSettings")}</DialogTitle>
+              <DialogDescription>{t("chat.ragSettingsDesc")}</DialogDescription>
             </DialogHeader>
           </div>
           <div className="space-y-5 px-6 py-5">
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">参考来源数量</span>
-                <span className="text-foreground">{topK} 条</span>
+                <span className="text-muted-foreground">{t("chat.topK")}</span>
+                <span className="text-foreground">{topK} {t("chat.topKUnit")}</span>
               </div>
               <input
                 type="range"
@@ -773,7 +781,7 @@ export default function ChatPage() {
             </div>
             <div>
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">最小相关度</span>
+                <span className="text-muted-foreground">{t("chat.minRelevance")}</span>
                 <span className="text-foreground">{Math.round(minRelevanceScore * 100)}%</span>
               </div>
               <input
@@ -794,14 +802,14 @@ export default function ChatPage() {
         <DialogContent className="max-w-[620px] gap-0 overflow-hidden p-0">
           <div className="border-b border-border/70 px-6 py-5">
             <DialogHeader className="text-left">
-              <DialogTitle>参考来源</DialogTitle>
-              <DialogDescription>仅在查看时展开，不占用主屏空间。</DialogDescription>
+              <DialogTitle>{t("chat.sources")}</DialogTitle>
+              <DialogDescription>{t("chat.ragSettingsDesc")}</DialogDescription>
             </DialogHeader>
           </div>
           <ScrollArea className="max-h-[70vh]">
             <div className="divide-y divide-border/70">
               {sources.length === 0 ? (
-                <div className="px-6 py-8 text-sm text-muted-foreground">当前还没有返回参考来源。</div>
+                <div className="px-6 py-8 text-sm text-muted-foreground">{t("chat.noSources")}</div>
               ) : (
                 sources.map((source, index) => (
                   <div key={`${source.source}-${index}`} className="px-6 py-4">
@@ -820,7 +828,7 @@ export default function ChatPage() {
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           {source.source_type && <span>{source.source_type}</span>}
                           {source.relevance_score !== undefined && (
-                            <span>相关度 {Math.round(source.relevance_score * 100)}%</span>
+                            <span>{t("chat.relevanceScore", { score: Math.round(source.relevance_score * 100) })}</span>
                           )}
                         </div>
                       </div>
@@ -850,7 +858,7 @@ export default function ChatPage() {
                                   <img
                                     key={i}
                                     src={img.base64}
-                                    alt={`${source.source} 第${img.page || '?'}页图片`}
+                                    alt={t("chat.sourceImageAlt", { source: source.source, page: img.page || "?" })}
                                     className="max-h-48 max-w-full rounded-lg border border-border object-contain cursor-pointer hover:opacity-90 transition-opacity"
                                     onClick={() => window.open(img.base64, '_blank')}
                                   />
@@ -864,7 +872,7 @@ export default function ChatPage() {
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 text-primary"
                               >
-                                查看来源
+                                {t("chat.viewSource")}
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </a>
                             )}

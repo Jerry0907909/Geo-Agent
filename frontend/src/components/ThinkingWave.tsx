@@ -5,7 +5,7 @@ interface Props {
   className?: string
 }
 
-export default function ThinkingWave({ text = "正在思考", className }: Props) {
+export default function ThinkingWave({ text = "", className }: Props) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
       {/* Wave bars */}
@@ -21,8 +21,9 @@ export default function ThinkingWave({ text = "正在思考", className }: Props
           />
         ))}
       </div>
-      {/* Text */}
-      <span className="text-sm text-muted-foreground select-none">{text}</span>
+      {text ? (
+        <span className="text-sm text-muted-foreground select-none">{text}</span>
+      ) : null}
 
       <style>{`
         @keyframes waveBar {

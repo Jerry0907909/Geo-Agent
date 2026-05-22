@@ -335,8 +335,12 @@ export const chatService = {
     return response.data
   },
 
-  async generateFollowUp(question: string, answer: string) {
-    const response = await api.post<{ questions: string[] }>('/chat/follow-up', { question, answer })
+  async generateFollowUp(question: string, answer: string, language?: 'en' | 'zh') {
+    const response = await api.post<{ questions: string[] }>('/chat/follow-up', {
+      question,
+      answer,
+      ...(language ? { language } : {}),
+    })
     return response.data
   },
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { useI18nStore } from "@/i18n"
 import { AnimatePresence, motion } from "framer-motion"
 import { Check, Loader2, Moon, Sun, Mail, ArrowRight } from "lucide-react"
 import { authService } from "../services/api"
@@ -14,12 +15,14 @@ function extractError(err: any): string {
   if (Array.isArray(detail)) {
     return detail.map((d: any) => `${(d.loc || []).join(".")}: ${d.msg}`).join("；")
   }
-  return "请求失败，请稍后重试"
+  return "Request failed"
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage() {
+  const t = useI18nStore((s) => s.t)
+  useI18nStore((s) => s.language) // BUG-2: subscribe to trigger re-render on lang change
   const [mode, setMode] = useState<"password" | "code">("password")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -50,78 +53,15 @@ export default function LoginPage() {
     return () => clearTimeout(timer)
   }, [countdown])
 
-  const handleSendCode = async () => {
-    const email = username.trim()
-    if (!EMAIL_REGEX.test(email)) {
-      setError("请输入邮箱地址")
-      return
-    }
-    setError("")
-    setSendingCode(true)
-    try {
-      await authService.sendVerificationCode(email)
-      setCountdown(60)
-    } catch (err: any) {
-      setError(extractError(err))
-    } finally {
-      setSendingCode(false)
-    }
-  }
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault()
-    setError("")
-
-    if (mode === "code") {
-      if (verificationCode.length !== 6) {
-        setError("请输入 6 位验证码")
-        return
-      }
-    } else {
-      if (!password) {
-        setError("请输入密码")
-        return
-      }
-    }
-
-    setLoading(true)
-    try {
-      const payload: any = { username }
-      if (mode === "code") {
-        payload.verification_code = verificationCode
-      } else {
-        payload.password = password
-      }
-
-      const resp = await authService.login(payload)
-      setToken(resp.access_token, resp.refresh_token)
-      const user = await authService.getCurrentUser()
-      setUser(user)
-      setSuccess(true)
-    } catch (err: any) {
-      setError(extractError(err))
-      setLoading(false)
-    }
-  }
-
   if (success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-4 text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20 }}
-            className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg"
-          >
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center gap-4 text-center">
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
             <Check className="h-6 w-6" />
           </motion.div>
-          <p className="text-lg font-medium">已登录</p>
-          <p className="text-sm text-muted-foreground">正在进入工作区</p>
+          <p className="text-lg font-medium">{t("auth.loginSuccess")}</p>
+          <p className="text-sm text-muted-foreground">{t("auth.entering")}</p>
         </motion.div>
       </div>
     )
@@ -129,154 +69,97 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Theme toggle */}
-      <button
-        onClick={toggleTheme}
-        className="fixed right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        aria-label={theme === "dark" ? "切换浅色模式" : "切换深色模式"}
-      >
+      <button onClick={toggleTheme} className="fixed right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}>
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
-
       <div className="mx-auto flex w-full max-w-[440px] flex-col justify-center px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full space-y-8"
-        >
-          {/* Brand */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }} className="w-full space-y-8">
           <div className="text-center">
-            <Link to="/" className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-lg font-bold text-primary-foreground shadow-sm">
-              G
-            </Link>
+            <Link to="/" className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-lg font-bold text-primary-foreground shadow-sm">G</Link>
           </div>
-
-          {/* Heading */}
           <div className="space-y-1.5 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">欢迎回来</h1>
-            <p className="text-sm text-muted-foreground">登录你的 Geo-Agent 账号</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{t("auth.welcomeBack")}</h1>
+            <p className="text-sm text-muted-foreground">{t("auth.loginSubtitle")}</p>
           </div>
-
-          {/* Mode tabs */}
           <div className="flex rounded-xl bg-secondary p-1">
             {[
-              { key: "password" as const, label: "密码登录" },
-              { key: "code" as const, label: "验证码登录" },
+              { key: "password" as const, label: t("auth.passwordLogin") },
+              { key: "code" as const, label: t("auth.codeLogin") },
             ].map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => { setMode(key); setError("") }}
-                className={`flex-1 rounded-[10px] py-2 text-sm font-medium transition-all duration-200 ${
-                  mode === key
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
+              <button key={key} type="button" onClick={() => { setMode(key); setError("") }}
+                className={`flex-1 rounded-[10px] py-2 text-sm font-medium transition-all duration-200 ${mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
             ))}
           </div>
-
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="login-email" className="text-sm font-medium">
-                账号
-              </label>
-              <Input
-                id="login-email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={mode === "code" ? "输入邮箱地址" : "输入用户名或邮箱"}
-                disabled={loading}
-                autoComplete={mode === "code" ? "email" : "username"}
-                required
-              />
+              <label htmlFor="login-email" className="text-sm font-medium">{mode === "code" ? t("auth.email") : t("auth.username")}</label>
+              <Input id="login-email" value={username} onChange={(e) => setUsername(e.target.value)}
+                placeholder={mode === "code" ? t("auth.enterEmail") : t("auth.enterUsername")}
+                disabled={loading} autoComplete={mode === "code" ? "email" : "username"} required />
             </div>
-
             {mode === "password" ? (
               <div className="space-y-2">
-                <label htmlFor="login-password" className="text-sm font-medium">
-                  密码
-                </label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="输入密码"
-                  disabled={loading}
-                  autoComplete="current-password"
-                  required
-                />
+                <label htmlFor="login-password" className="text-sm font-medium">{t("auth.password")}</label>
+                <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t("auth.enterPassword")} disabled={loading} autoComplete="current-password" required />
               </div>
             ) : (
               <div className="space-y-2">
-                <label htmlFor="login-code" className="text-sm font-medium">
-                  验证码
-                </label>
+                <label htmlFor="login-code" className="text-sm font-medium">{t("auth.sendCode")}</label>
                 <div className="flex gap-2">
-                  <Input
-                    id="login-code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="6 位数字验证码"
-                    maxLength={6}
-                    disabled={loading}
-                    autoComplete="one-time-code"
-                    className="flex-1"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={sendingCode || countdown > 0 || !EMAIL_REGEX.test(username.trim())}
-                    onClick={handleSendCode}
-                    className="shrink-0 gap-1.5"
-                  >
-                    {sendingCode ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Mail className="h-3.5 w-3.5" />
-                    )}
-                    {countdown > 0 ? `${countdown}s` : "发送"}
+                  <Input id="login-code" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder={t("auth.enterCode")} maxLength={6} disabled={loading} autoComplete="one-time-code" className="flex-1" required />
+                  <Button type="button" variant="outline" disabled={sendingCode || countdown > 0 || !EMAIL_REGEX.test(username.trim())}
+                    onClick={handleSendCode} className="shrink-0 gap-1.5">
+                    {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                    {countdown > 0 ? `${countdown}s` : t("auth.sendCode")}
                   </Button>
                 </div>
               </div>
             )}
-
             <AnimatePresence mode="wait">
               {error && (
-                <motion.div
-                  key="error"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive"
-                >
-                  {error}
-                </motion.div>
+                <motion.div key="error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">{error}</motion.div>
               )}
             </AnimatePresence>
-
             <Button type="submit" className="h-11 w-full gap-2" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              登录
+              {t("auth.login")}
               {!loading && <ArrowRight className="h-4 w-4" />}
             </Button>
           </form>
-
-          {/* Footer link */}
           <p className="text-center text-sm text-muted-foreground">
-            还没有账号？{" "}
-            <Link to="/register" className="font-medium text-primary hover:underline underline-offset-2">
-              创建账号
-            </Link>
+            {t("auth.noAccount")}{" "}
+            <Link to="/register" className="font-medium text-primary hover:underline underline-offset-2">{t("auth.createAccount")}</Link>
           </p>
         </motion.div>
       </div>
     </div>
   )
+
+  function handleSendCode() {
+    const email = username.trim()
+    if (!EMAIL_REGEX.test(email)) { setError(t("auth.enterEmail")); return }
+    setError(""); setSendingCode(true)
+    authService.sendVerificationCode(email).then(() => setCountdown(60)).catch((err) => setError(extractError(err))).finally(() => setSendingCode(false))
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault(); setError("")
+    if (mode === "code") { if (verificationCode.length !== 6) { setError(t("auth.enterCode")); return } }
+    else { if (!password) { setError(t("auth.enterPassword")); return } }
+    setLoading(true)
+    try {
+      const payload: any = { username }
+      if (mode === "code") payload.verification_code = verificationCode
+      else payload.password = password
+      const resp = await authService.login(payload)
+      setToken(resp.access_token, resp.refresh_token)
+      const user = await authService.getCurrentUser()
+      setUser(user)
+      setSuccess(true)
+    } catch (err: any) { setError(extractError(err)) } finally { setLoading(false) }
+  }
 }
