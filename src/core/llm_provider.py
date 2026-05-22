@@ -249,6 +249,18 @@ def create_llm_provider(
     if not api_key or not api_endpoint or not model_name:
         raise ValueError("LLM 配置不完整：缺少 api_key / api_endpoint / model_name")
 
+    # enable_thinking: 优先函数参数 → 回退 config.yaml → 默认 None（不传）
+    if enable_thinking is None:
+        cfg_val = llm_cfg.get("enable_thinking", "")
+        if isinstance(cfg_val, str):
+            cfg_val = cfg_val.strip().lower()
+            if cfg_val in ("false", "0", "no", "off"):
+                enable_thinking = False
+            elif cfg_val in ("true", "1", "yes", "on"):
+                enable_thinking = True
+        elif isinstance(cfg_val, bool):
+            enable_thinking = cfg_val
+
     extra_body = (
         {"enable_thinking": enable_thinking}
         if enable_thinking is not None

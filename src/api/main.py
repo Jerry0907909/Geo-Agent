@@ -19,6 +19,7 @@ from src.api.routes import router
 from src.api.auth_routes import router as auth_router
 from src.api.chat_routes import router as chat_router
 from src.api.settings_routes import router as settings_router
+from src.api.search_routes import router as search_router
 from src.utils.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,7 @@ app.include_router(router, prefix="/api", tags=["API"])
 app.include_router(auth_router, prefix="/api", tags=["认证"])
 app.include_router(chat_router, prefix="/api", tags=["聊天"])
 app.include_router(settings_router, prefix="/api", tags=["设置"])
+app.include_router(search_router, prefix="/api", tags=["深度搜索"])
 
 
 # 用于直接运行

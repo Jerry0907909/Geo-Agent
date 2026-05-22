@@ -82,6 +82,9 @@ class WebSearchTool:
         try:
             if self._tavily_api_key:
                 results = self._dual_pass_search(query, k)
+                if not results:
+                    logger.warning("Tavily 搜索无结果，尝试 DuckDuckGo 回退")
+                    results = self._search_duckduckgo(query, k * FETCH_MULTIPLIER)
             else:
                 results = self._search_duckduckgo(query, k * FETCH_MULTIPLIER)
 
@@ -130,63 +133,68 @@ class WebSearchTool:
     def _tavily_search(
         self, query: str, max_results: int, include_domains: Optional[List[str]] = None,
     ) -> List[SearchResult]:
-        try:
-            from tavily import TavilyClient
-            client = TavilyClient(api_key=self._tavily_api_key)
-            time_range, topic = self._detect_time_range(query)
+        # 使用原生 httpx 替代 TavilyClient，避免 SDK 的 SSL 握手问题
+        import httpx
+        import random
 
-            kwargs: Dict[str, Any] = {
-                "query": query,
-                "search_depth": self._search_depth,
-                "max_results": min(max_results, 20),
-                "include_answer": True,
-                "time_range": time_range,
-            }
-            if topic and topic != "general":
-                kwargs["topic"] = topic
-            if include_domains:
-                kwargs["include_domains"] = include_domains[:30]
-            if self._exclude_domains:
-                kwargs["exclude_domains"] = self._exclude_domains
+        time_range, topic = self._detect_time_range(query)
 
-            logger.info(
-                "[Tavily] query='%s' max=%d time=%s domains=%d",
-                query[:50], max_results, time_range,
-                len(include_domains) if include_domains else 0,
-            )
-            result = client.search(**kwargs)
-            raw = result.get("results", []) if isinstance(result, dict) else []
-            now_year = time_module.localtime().tm_year
+        body = {
+            "api_key": self._tavily_api_key,
+            "query": query,
+            "search_depth": self._search_depth,
+            "max_results": min(max_results, 20),
+            "include_answer": True,
+            "time_range": time_range,
+        }
+        if topic and topic != "general":
+            body["topic"] = topic
+        if include_domains:
+            body["include_domains"] = include_domains[:30]
+        if self._exclude_domains:
+            body["exclude_domains"] = self._exclude_domains
 
-            results = []
-            for r in raw:
-                title = r.get("title", "")
-                url = r.get("url", "")
-                content = r.get("content", "") or r.get("snippet", "")
-                if not title or not url:
-                    continue
-                # 中文过滤
-                if self._language_preference == "zh" and not self._has_chinese(title + content[:120]):
-                    continue
-                raw_score = float(r.get("score", 0.5))
-                raw_date = r.get("published_date", "")
-                st = self._classify_source(url)
-                boost = SOURCE_BOOST.get(st, 0.0)
-                recency = self._recency_boost(raw_date, now_year)
-                results.append(SearchResult(
-                    title=title, snippet=content or title, url=url,
-                    source_type=st,
-                    relevance_score=min(raw_score + boost + recency, 1.0),
-                    publish_date=raw_date or None,
-                ))
-            return results
+        logger.info("[Tavily] query='%s' max=%d time=%s", query[:50], max_results, time_range)
 
-        except ImportError:
-            logger.warning("tavily-python 未安装 → DuckDuckGo")
-            return self._search_duckduckgo(query, max_results)
-        except Exception as e:
-            logger.warning("Tavily 搜索失败: %s → DuckDuckGo", e)
-            return self._search_duckduckgo(query, max_results)
+        raw = []
+        for attempt in range(3):
+            try:
+                with httpx.Client(timeout=httpx.Timeout(15.0)) as client:
+                    resp = client.post("https://api.tavily.com/search", json=body)
+                    data = resp.json()
+                    raw = data.get("results", []) if isinstance(data, dict) else []
+                    break
+            except Exception as e:
+                if attempt < 2:
+                    delay = 0.3 * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning("[Tavily] 第 %d 次失败 (retry %.1fs): %s", attempt + 1, delay, e)
+                    time_module.sleep(delay)
+                else:
+                    logger.warning("[Tavily] 3 次均失败: %s", e)
+                    return []
+
+        now_year = time_module.localtime().tm_year
+        results = []
+        for r in raw:
+            title = r.get("title", "")
+            url = r.get("url", "")
+            content = r.get("content", "") or r.get("snippet", "")
+            if not title or not url:
+                continue
+            if self._language_preference == "zh" and not self._has_chinese(title + content[:120]):
+                continue
+            raw_score = float(r.get("score", 0.5))
+            raw_date = r.get("published_date", "")
+            st = self._classify_source(url)
+            boost = SOURCE_BOOST.get(st, 0.0)
+            recency = self._recency_boost(raw_date, now_year)
+            results.append(SearchResult(
+                title=title, snippet=content or title, url=url,
+                source_type=st,
+                relevance_score=min(raw_score + boost + recency, 1.0),
+                publish_date=raw_date or None,
+            ))
+        return results
 
     # ========== DuckDuckGo ==========
 

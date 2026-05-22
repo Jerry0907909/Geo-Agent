@@ -20,6 +20,7 @@ llm:
   temperature: 0.7
   max_tokens: 2048
   top_p: 0.95
+  enable_thinking: "${LLM_ENABLE_THINKING}"  # DeepSeek 深度思考开关
   request_timeout: 60
   use_env_proxy: false
   proxy_url: ~
@@ -46,7 +47,9 @@ rag:
   
   # Reranker配置
   use_reranker: true
-  reranker_model: "BAAI/bge-reranker-v2-m3"
+  reranker_api: true  # true=使用硅基流动API(推荐)  false=本地模型
+  reranker_api_endpoint: "${RERANK_API_ENDPOINT}"
+  reranker_model: "${RERANK_MODEL_NAME}"
   reranker_initial_k: 20  # 初次检索数量
   reranker_final_k: 5     # 重排后保留数量
 

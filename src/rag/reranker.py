@@ -1,6 +1,8 @@
 """重排序器
 
-使用交叉编码器对检索结果进行重新排序，提高检索精度。
+支持两种模式：
+1. API 模式（默认）— 调用硅基流动 /v1/rerank，零本地资源消耗
+2. 本地模式 — 加载 sentence-transformers CrossEncoder
 """
 
 from typing import List, Optional, Tuple
@@ -11,135 +13,130 @@ from src.utils.config import get_config
 
 logger = logging.getLogger(__name__)
 
-# 全局模型缓存
+# 本地模型全局缓存
 _reranker_model = None
 
 
+class SiliconFlowReranker:
+    """基于硅基流动 API 的重排序器（推荐，无需本地 GPU）"""
+
+    def __init__(
+        self,
+        api_endpoint: str = "https://api.siliconflow.cn/v1/rerank",
+        api_key: str = "",
+        model_name: str = "BAAI/bge-reranker-v2-m3",
+    ):
+        self.api_endpoint = api_endpoint.rstrip("/")
+        self.api_key = api_key
+        self.model_name = model_name
+
+    def rerank(
+        self, query: str, documents: List[Document], top_k: Optional[int] = None,
+    ) -> List[Document]:
+        if not documents:
+            return []
+        if top_k is None:
+            top_k = len(documents)
+
+        import httpx
+        texts = [doc.page_content for doc in documents]
+
+        try:
+            with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
+                resp = client.post(
+                    self.api_endpoint,
+                    json={
+                        "model": self.model_name,
+                        "query": query,
+                        "documents": texts,
+                        "top_n": top_k,
+                    },
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as e:
+            logger.warning("[Rerank API] 调用失败: %s，返回原始排序", e)
+            return documents[:top_k]
+
+        results = data.get("results", [])
+        ranked = []
+        for r in results:
+            idx = r.get("index", 0)
+            score = r.get("relevance_score", 0.0)
+            if idx < len(documents):
+                doc = documents[idx]
+                doc.metadata["rerank_score"] = float(score)
+                ranked.append(doc)
+        logger.info("[Rerank API] %d docs → top_%d", len(documents), len(ranked))
+        return ranked[:top_k]
+
+    def score(self, query: str, document: str) -> float:
+        docs = [Document(page_content=document)]
+        ranked = self.rerank(query, docs, top_k=1)
+        if ranked:
+            return float(ranked[0].metadata.get("rerank_score", 0.0))
+        return 0.0
+
+
 class Reranker:
-    """重排序器：使用交叉编码器对检索结果重新排序
-    
-    交叉编码器直接计算查询和文档的相关性分数，
-    比双塔模型（如向量检索）更准确，但计算成本更高。
-    """
-    
+    """本地交叉编码器重排序器（备选方案）"""
+
     def __init__(
         self,
         model_name: str = "BAAI/bge-reranker-v2-m3",
         device: Optional[str] = None,
-        use_fp16: bool = True
+        use_fp16: bool = True,
     ):
-        """初始化重排序器
-        
-        Args:
-            model_name: 模型名称或路径
-            device: 运行设备 ('cpu', 'cuda', 'mps')
-            use_fp16: 是否使用FP16精度
-        """
         self.model_name = model_name
         self.device = device
         self.use_fp16 = use_fp16
         self._model = None
-        
-        logger.info(f"重排序器配置: model={model_name}, device={device}")
-    
+
     @property
     def model(self):
-        """延迟加载模型"""
         global _reranker_model
-        
         if self._model is not None:
             return self._model
-        
         if _reranker_model is not None:
             self._model = _reranker_model
             return self._model
-        
+
         try:
             from sentence_transformers import CrossEncoder
-            
-            logger.info(f"加载重排序模型: {self.model_name}")
-            
-            self._model = CrossEncoder(
-                self.model_name,
-                device=self.device,
-                max_length=512
-            )
-            
-            # 缓存全局模型
+            self._model = CrossEncoder(self.model_name, device=self.device, max_length=512)
             _reranker_model = self._model
-            
-            logger.info("重排序模型加载完成")
+            logger.info("[Reranker] 本地模型加载完成: %s", self.model_name)
             return self._model
-        
         except ImportError:
-            logger.error("sentence-transformers未安装，请运行: pip install sentence-transformers")
+            logger.error("sentence-transformers 未安装")
             raise
         except Exception as e:
-            logger.error(f"加载重排序模型失败: {e}")
+            logger.error("[Reranker] 模型加载失败: %s", e)
             raise
-    
-    def rerank(
-        self,
-        query: str,
-        documents: List[Document],
-        top_k: Optional[int] = None
-    ) -> List[Document]:
-        """对文档重新排序
-        
-        Args:
-            query: 查询文本
-            documents: 待排序的文档列表
-            top_k: 返回的文档数量，默认返回全部
-            
-        Returns:
-            重新排序后的文档列表
-        """
+
+    def rerank(self, query: str, documents: List[Document], top_k: Optional[int] = None) -> List[Document]:
         if not documents:
             return []
-        
         if top_k is None:
             top_k = len(documents)
-        
         try:
-            # 构建查询-文档对
             pairs = [(query, doc.page_content) for doc in documents]
-            
-            # 计算相关性分数
             scores = self.model.predict(pairs, show_progress_bar=False)
-            
-            # 配对并排序
-            doc_score_pairs = list(zip(documents, scores))
-            doc_score_pairs.sort(key=lambda x: x[1], reverse=True)
-            
-            # 添加分数到metadata并返回
-            result_docs = []
-            for doc, score in doc_score_pairs[:top_k]:
+            pairs_with_scores = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)
+            result = []
+            for doc, score in pairs_with_scores[:top_k]:
                 doc.metadata["rerank_score"] = float(score)
-                result_docs.append(doc)
-            
-            logger.debug(f"重排序完成，返回 {len(result_docs)} 个文档")
-            return result_docs
-        
+                result.append(doc)
+            return result
         except Exception as e:
-            logger.error(f"重排序失败: {e}")
-            # 失败时返回原始顺序
+            logger.error("[Reranker] 重排序失败: %s", e)
             return documents[:top_k]
-    
+
     def score(self, query: str, document: str) -> float:
-        """计算单个查询-文档对的相关性分数
-        
-        Args:
-            query: 查询文本
-            document: 文档内容
-            
-        Returns:
-            相关性分数
-        """
         try:
-            score = self.model.predict([(query, document)])[0]
-            return float(score)
-        except Exception as e:
-            logger.error(f"计算分数失败: {e}")
+            return float(self.model.predict([(query, document)])[0])
+        except Exception:
             return 0.0
 
 
@@ -300,24 +297,35 @@ class LightweightReranker:
 
 def create_reranker(
     model_name: Optional[str] = None,
-    use_lightweight: bool = False
-) -> Reranker:
-    """创建重排序器
-    
+    use_lightweight: bool = False,
+) -> "SiliconFlowReranker | Reranker | LightweightReranker":
+    """创建重排序器（优先使用硅基流动 API）
+
     Args:
-        model_name: 模型名称
-        use_lightweight: 是否使用轻量级（LLM）重排序器
-        
-    Returns:
-        重排序器实例
+        model_name: 模型名称（默认从 config 读取）
+        use_lightweight: 是否使用 LLM 重排序器
     """
-    config = get_config()
-    rag_cfg = config.get_rag_config()
-    
     if use_lightweight:
         return LightweightReranker()
-    
+
+    config = get_config()
+    rag_cfg = config.get_rag_config()
+
     if model_name is None:
         model_name = rag_cfg.get("reranker_model", "BAAI/bge-reranker-v2-m3")
-    
+
+    # API 模式优先
+    use_api = rag_cfg.get("reranker_api", True)
+    if use_api:
+        api_endpoint = rag_cfg.get("reranker_api_endpoint", "https://api.siliconflow.cn/v1/rerank")
+        api_key = config.get("llm.api_key") or config.get("embedding.api_key")
+        if api_key:
+            logger.info("[Reranker] 使用硅基流动 API: %s (%s)", api_endpoint, model_name)
+            return SiliconFlowReranker(
+                api_endpoint=api_endpoint,
+                api_key=api_key,
+                model_name=model_name,
+            )
+
+    logger.info("[Reranker] API key 未配置，使用本地模型: %s", model_name)
     return Reranker(model_name=model_name)

@@ -116,52 +116,53 @@ def parse_pdf_content(file_path: str) -> str:
 
 def parse_pdf_with_images(file_path: str) -> dict:
     """解析 PDF 文件，提取文本和图片
-    
+
+    图片提取策略：
+    1. 先提取 PDF 内嵌的各图片对象
+    2. 如果某页图片数量 ≥ 3（折线图/图表被拆分的典型特征），
+       额外渲染整页为一张完整图片（2x 缩放，确保图表清晰）
+
     Returns:
         dict: {
             "text": 完整文本内容,
-            "pages": [
-                {
-                    "page_num": 页码,
-                    "text": 该页文本,
-                    "images": [{"base64": base64编码, "width": 宽, "height": 高}]
-                }
-            ],
-            "images": [所有图片的base64列表],
+            "pages": [{"page_num": N, "text": "...", "images": [...]}],
+            "images": [全部图片（含整页渲染）],
+            "page_images": [整页渲染图],
             "image_count": 图片总数
         }
     """
     import base64
-    import io
-    
+
     try:
         import fitz  # pymupdf
-        
+
         doc = fitz.open(file_path)
         result = {
             "text": "",
             "pages": [],
             "images": [],
-            "image_count": 0
+            "page_images": [],
+            "image_count": 0,
         }
-        
+
         all_text_parts = []
-        
+
         for page_num, page in enumerate(doc):
             page_data = {
                 "page_num": page_num + 1,
                 "text": "",
-                "images": []
+                "images": [],
             }
-            
+
             # 提取文本
             text = page.get_text()
             if text:
                 page_data["text"] = text
                 all_text_parts.append(f"[第{page_num + 1}页]\n{text}")
-            
-            # 提取图片
+
+            # 提取内嵌图片对象
             image_list = page.get_images(full=True)
+
             for img_index, img_info in enumerate(image_list):
                 try:
                     xref = img_info[0]
@@ -170,46 +171,63 @@ def parse_pdf_with_images(file_path: str) -> dict:
                     image_ext = base_image["ext"]
                     width = base_image.get("width", 0)
                     height = base_image.get("height", 0)
-                    
-                    # 过滤太小的图片（可能是图标或装饰）
+
                     if width < 50 or height < 50:
                         continue
-                    
-                    # 转为 base64
-                    b64_data = base64.b64encode(image_bytes).decode('utf-8')
+
+                    b64_data = base64.b64encode(image_bytes).decode("utf-8")
                     mime_type = f"image/{image_ext}" if image_ext else "image/png"
-                    
+
                     image_data = {
                         "base64": f"data:{mime_type};base64,{b64_data}",
                         "width": width,
                         "height": height,
                         "page": page_num + 1,
-                        "index": img_index
+                        "index": img_index,
+                        "type": "embedded",
                     }
-                    
                     page_data["images"].append(image_data)
                     result["images"].append(image_data)
-                    
-                except Exception as e:
-                    # 单个图片提取失败不影响整体
+
+                except Exception:
                     continue
-            
+
+            # 图表页检测：有内嵌图的页 → 渲染整页为一张完整图
+            # PDF 常把图表拆成多个小图对象，整页渲染保证图表完整
+            if len(image_list) > 0:
+                try:
+                    mat = fitz.Matrix(2.0, 2.0)
+                    pix = page.get_pixmap(matrix=mat)
+                    page_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
+                    page_img = {
+                        "base64": f"data:image/png;base64,{page_b64}",
+                        "width": pix.width,
+                        "height": pix.height,
+                        "page": page_num + 1,
+                        "index": -1,
+                        "type": "full_page",
+                    }
+                    page_data["images"].insert(0, page_img)
+                    result["images"].append(page_img)
+                    result["page_images"].append(page_img)
+                except Exception:
+                    pass
+
             result["pages"].append(page_data)
-        
+
         doc.close()
-        
         result["text"] = "\n\n".join(all_text_parts)
         result["image_count"] = len(result["images"])
-        
+
         return result
-        
+
     except ImportError:
-        # 如果没有 pymupdf，回退到纯文本解析
         return {
             "text": parse_pdf_content(file_path),
             "pages": [],
             "images": [],
-            "image_count": 0
+            "page_images": [],
+            "image_count": 0,
         }
     except Exception as e:
         raise ValueError(f"PDF 解析失败: {str(e)}")
