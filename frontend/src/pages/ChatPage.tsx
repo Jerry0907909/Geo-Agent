@@ -253,21 +253,15 @@ export default function ChatPage() {
         let fullContent = ""
         let latestSources: Source[] = []
         let hasAddedPlaceholder = false
+
+        // RAF 流式 — 节流到 60fps，始终渲染最新内容
         let rafId: number | null = null
+        let latestContent = ""
 
-        const flushStreamingContent = () => {
-          if (rafId !== null) {
-            window.cancelAnimationFrame(rafId)
-            rafId = null
-          }
-          setStreamingContent(fullContent)
-        }
-
-        const queueStreamingContent = () => {
+        const flushStreaming = () => {
           if (rafId !== null) return
-
-          rafId = window.requestAnimationFrame(() => {
-            setStreamingContent(fullContent)
+          rafId = requestAnimationFrame(() => {
+            setStreamingContent(latestContent)
             rafId = null
           })
         }
@@ -308,8 +302,9 @@ export default function ChatPage() {
               }
 
               fullContent += streamEvent.content || ""
+              latestContent = fullContent
               setStatusMessage("")
-              queueStreamingContent()
+              flushStreaming()
               break
             case "sources":
               latestSources = streamEvent.sources || []
@@ -317,7 +312,9 @@ export default function ChatPage() {
               break
             case "done":
               setStatusMessage("")
-              flushStreamingContent()
+              // 确保最后一帧渲染
+              if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+              setStreamingContent(fullContent)
 
               if (newConversationId) {
                 setCurrentConversationId(newConversationId)
@@ -343,9 +340,11 @@ export default function ChatPage() {
 
                 generateFollowUpQuestions(userMsg.content, fullContent)
               }
+              setStreamingContent("")
               break
             case "error":
-              flushStreamingContent()
+              if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+              setStreamingContent("")
               throw new Error(streamEvent.message)
           }
         }
@@ -511,7 +510,7 @@ export default function ChatPage() {
                             <motion.span
                               className="ml-1 inline-block h-5 w-0.5 bg-primary"
                               animate={{ opacity: [1, 0] }}
-                              transition={{ duration: 0.8, repeat: Number.POSITIVE_INFINITY }}
+                              transition={{ duration: 0.6, repeat: Number.POSITIVE_INFINITY }}
                             />
                           </div>
                         ) : (
@@ -845,6 +844,19 @@ export default function ChatPage() {
                         >
                           <div className="space-y-3 pl-11 pt-3 text-sm text-muted-foreground">
                             <p className="leading-6">{source.content}</p>
+                            {source.images && source.images.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {source.images!.map((img: any, i: number) => (
+                                  <img
+                                    key={i}
+                                    src={img.base64}
+                                    alt={`${source.source} 第${img.page || '?'}页图片`}
+                                    className="max-h-48 max-w-full rounded-lg border border-border object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(img.base64, '_blank')}
+                                  />
+                                ))}
+                              </div>
+                            )}
                             {source.url && (
                               <a
                                 href={source.url}

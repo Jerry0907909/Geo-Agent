@@ -383,8 +383,15 @@ async def upload_document_file(
         from src.core.text_splitter import create_text_splitter
 
         filename = file.filename or "unknown"
+
+        # 未指定知识库时，优先使用用户现有知识库（而非默认 qa_dataset）
+        if not collection:
+            user_collections = _user_collections_for_user(current_user)
+            if user_collections:
+                collection = _display_collection_name(user_collections[0], current_user.id)
+
         user_coll = _user_collection(current_user, collection)
-        logger.info(f"[文件上传] user={current_user.username} file={filename} collection={user_coll}")
+        logger.info("[文件上传] user=%s file=%s collection=%s", current_user.username, filename, user_coll)
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
             content = await file.read()
@@ -457,6 +464,101 @@ async def upload_document_file(
     except Exception as e:
         logger.error(f"[文件上传] 失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"文件上传失败: {str(e)}")
+
+
+@router.post("/documents/upload-batch")
+async def upload_documents_batch(
+    files: List[UploadFile] = File(...),
+    collection: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_active_user),
+):
+    """批量上传文件"""
+    import logging
+    import os
+    import json
+    import asyncio
+    logger = logging.getLogger(__name__)
+
+    results = []
+    errors = []
+    total_chunks = 0
+
+    for file in files:
+        filename = file.filename or "unknown"
+        try:
+            from src.core.text_splitter import create_text_splitter
+
+            if not collection:
+                user_collections = _user_collections_for_user(current_user)
+                if user_collections:
+                    collection = _display_collection_name(user_collections[0], current_user.id)
+
+            user_coll = _user_collection(current_user, collection)
+            logger.info("[批量上传] user=%s file=%s coll=%s", current_user.username, filename, user_coll)
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
+                content = await file.read()
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            try:
+                is_pdf = filename.lower().endswith('.pdf')
+                images_data = []
+
+                if is_pdf:
+                    pdf_result = parse_pdf_with_images(tmp_path)
+                    text_content = pdf_result["text"]
+                    images_data = pdf_result["images"]
+                    image_count = pdf_result["image_count"]
+                else:
+                    text_content = parse_file_content(tmp_path, filename)
+                    image_count = 0
+
+                if not text_content.strip():
+                    errors.append({"file": filename, "error": "文件内容为空"})
+                    continue
+
+                chroma_manager = create_chroma_manager(collection_name=user_coll)
+                text_splitter = create_text_splitter()
+
+                from datetime import datetime
+                upload_date = datetime.now().strftime("%Y-%m-%d")
+
+                metadata = _add_user_meta({
+                    "file_name": filename, "source": filename,
+                    "date": upload_date, "upload_time": datetime.now().isoformat(),
+                    "has_images": image_count > 0, "image_count": image_count,
+                }, current_user)
+
+                if images_data:
+                    images_dir = Path("./data/document_images")
+                    images_dir.mkdir(parents=True, exist_ok=True)
+                    safe_filename = "".join(c if c.isalnum() or c in '-_.' else '_' for c in filename)
+                    images_file = images_dir / f"{safe_filename}.json"
+                    with open(images_file, 'w', encoding='utf-8') as f:
+                        json.dump({"source": filename, "images": images_data, "image_count": image_count}, f, ensure_ascii=False)
+                    metadata["images_file"] = str(images_file)
+
+                doc = Document(page_content=text_content, metadata=metadata)
+                chunks = text_splitter.split_documents([doc])
+                doc_ids = chroma_manager.add_documents(chunks)
+                total_chunks += len(chunks)
+                results.append({"file": filename, "chunks": len(chunks), "status": "ok"})
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+        except Exception as e:
+            logger.error("[批量上传] %s 失败: %s", filename, e)
+            errors.append({"file": filename, "error": str(e)})
+
+    return {
+        "success": True,
+        "message": f"批量上传完成: {len(results)} 成功, {len(errors)} 失败, 共 {total_chunks} 个片段",
+        "results": results,
+        "errors": errors,
+    }
 
 
 @router.get("/documents/list", response_model=DocumentListResponse)

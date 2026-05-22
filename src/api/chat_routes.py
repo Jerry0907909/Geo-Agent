@@ -1012,19 +1012,31 @@ async def stream_chat(
                         except Exception as e:
                             logger.warning(f"  加载图片失败: {images_file}, 错误: {e}")
                 
-                # 发送来源信息（文献 + 网络链接）
+                # 发送来源信息（文献 + 网络链接），文献带图片
                 if docs:
                     for doc in docs:
-                        sources.append({
+                        entry = {
                             "content": doc.page_content[:300],
                             "source": doc.metadata.get("source", "未知来源"),
                             "relevance_score": doc.metadata.get("relevance_score"),
                             "type": "document",
+                            "images": [],
                             "metadata": {
-                                k: v for k, v in doc.metadata.items() 
+                                k: v for k, v in doc.metadata.items()
                                 if k not in ["page_content", "chroma_id"]
                             }
-                        })
+                        }
+                        # 挂载关联图片
+                        for di in doc_images:
+                            if di.get("source") == doc.metadata.get("source") or \
+                               di.get("source") == doc.metadata.get("file_name"):
+                                entry["images"].append({
+                                    "base64": di.get("base64"),
+                                    "page": di.get("page"),
+                                    "width": di.get("width"),
+                                    "height": di.get("height"),
+                                })
+                        sources.append(entry)
                 
                 # 添加网络搜索结果
                 if web_results:

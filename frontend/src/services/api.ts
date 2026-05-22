@@ -83,6 +83,12 @@ export interface Source {
   type?: 'document' | 'web'
   source_type?: string
   metadata?: Record<string, any>
+  images?: Array<{
+    base64: string
+    page?: number
+    width?: number
+    height?: number
+  }>
 }
 
 export interface Document {
@@ -376,13 +382,12 @@ export const chatService = {
   },
 
   async uploadDocument(file: File, collection?: string) {
-    // 使用 FormData 上传文件，支持 PDF、Word 等二进制格式
     const formData = new FormData()
     formData.append('file', file)
     if (collection) {
       formData.append('collection', collection)
     }
-    
+
     const token = useAuthStore.getState().token
     const response = await fetch('/api/documents/upload-file', {
       method: 'POST',
@@ -391,12 +396,38 @@ export const chatService = {
       },
       body: formData
     })
-    
+
     if (!response.ok) {
       const error = await response.json()
       throw { response: { data: error } }
     }
-    
+
+    return response.json()
+  },
+
+  async uploadDocumentsBatch(files: File[], collection?: string) {
+    const formData = new FormData()
+    for (const file of files) {
+      formData.append('files', file)
+    }
+    if (collection) {
+      formData.append('collection', collection)
+    }
+
+    const token = useAuthStore.getState().token
+    const response = await fetch('/api/documents/upload-batch', {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw { response: { data: error } }
+    }
+
     return response.json()
   },
 

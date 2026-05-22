@@ -1087,30 +1087,45 @@ export default function DocumentsPage() {
     fetchDocuments(type)
   }
 
-  // 文件上传
+  // 文件上传（支持批量）
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
     setIsUploading(true)
     const targetCollection = selectedCollection || undefined
-    startProgress(
-      "正在上传文件",
-      `正在处理 ${file.name}${targetCollection ? ` → ${targetCollection}` : ''}...`
-    )
-    
-    try {
-      const result = await chatService.uploadDocument(file, targetCollection)
-      updateMessage("正在更新索引...")
-      await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
-      await completeProgress()
-      showToast(`上传成功！${result.message || ''}`, 'success')
-    } catch (error: any) {
-      cancelProgress()
-      showToast(`上传失败: ${error.response?.data?.detail || error.message}`, 'error')
-    } finally {
-      setIsUploading(false)
-      e.target.value = ""
+    const fileList = Array.from(files)
+
+    if (fileList.length === 1) {
+      startProgress("正在上传文件", `正在处理 ${fileList[0].name}...`)
+      try {
+        const result = await chatService.uploadDocument(fileList[0], targetCollection)
+        await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
+        await completeProgress()
+        showToast(`上传成功！${result.message || ''}`, 'success')
+      } catch (error: any) {
+        cancelProgress()
+        showToast(`上传失败: ${error.response?.data?.detail || error.message}`, 'error')
+      } finally {
+        setIsUploading(false)
+        e.target.value = ""
+      }
+    } else {
+      startProgress("正在批量上传", `共 ${fileList.length} 个文件...`)
+      try {
+        const result = await chatService.uploadDocumentsBatch(fileList, targetCollection)
+        await Promise.all([fetchDocuments(selectedFileType), fetchCollections(), fetchFileTypeStats()])
+        await completeProgress()
+        const ok = result.results?.length || 0
+        const err = result.errors?.length || 0
+        showToast(`上传完成: ${ok} 成功${err > 0 ? `, ${err} 失败` : ''}`, err > 0 ? 'error' : 'success')
+      } catch (error: any) {
+        cancelProgress()
+        showToast(`批量上传失败: ${error.response?.data?.detail || error.message}`, 'error')
+      } finally {
+        setIsUploading(false)
+        e.target.value = ""
+      }
     }
   }
 
@@ -1337,6 +1352,7 @@ export default function DocumentsPage() {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               className="hidden"
               onChange={handleFileUpload}
               accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
