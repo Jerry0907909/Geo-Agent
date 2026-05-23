@@ -1,156 +1,206 @@
-# Geo-Agent — AI 地质文献智能问答系统
+# 🗺️ Geo-Agent
 
-基于 RAG + Deep Search 技术的 AI 问答系统。支持知识库检索、联网深度搜索、多模态分析、多语言切换。
+> AI-powered geological literature Q&A system with RAG + Deep Search
 
-[![Python](https://img.shields.io/badge/python-3.11+-green.svg)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.124.0-009688.svg)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18.2.0-61DAFB.svg)](https://react.dev)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.124-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/React-18.2-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React">
+  <img src="https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat-square&logo=langchain&logoColor=white" alt="LangChain">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+</p>
 
----
-
-## 功能特性
-
-- **智能对话** — LLM 多轮对话，SSE 流式输出，实时 Markdown 渲染
-- **知识库 RAG** — 向量语义检索 + BM25 关键词混合检索 + Reranker 重排序 + 用户级知识库隔离
-- **联网深度搜索** — 查询规划 → 多查询并发 → 正文抽取 → Embedding 召回 → 重排序 → 上下文压缩 → 引用溯源（类 Perplexity）
-- **多模态分析** — 图像上传与 PDF 图片提取，Vision 模型多图分析
-- **用户系统** — JWT 认证、邮箱验证码注册/登录、密码修改
-- **国际化** — 中英双语 UI，Zustand 驱动的动态切换，懒加载语言包
-- **暗色模式** — CSS 变量驱动，全局即时切换
+<p align="center">
+  <b>English</b> &nbsp;|&nbsp; <a href="#chinese">中文</a>
+</p>
 
 ---
 
-## 技术栈
+## ✨ Features
 
-**后端**：Python 3.11+ · FastAPI · LangChain · ChromaDB · SQLAlchemy · MySQL · Redis · httpx · PyMuPDF  
-**前端**：React 18 · TypeScript · Vite · TailwindCSS · Zustand · Framer Motion · react-markdown  
-**AI/搜索**：SiliconFlow API · Tavily Search API · BAAI/bge-reranker-v2-m3 · trafilatura
+- **🤖 Intelligent Chat** — Multi-turn LLM conversation with SSE streaming and real-time Markdown rendering
+- **📚 Knowledge Base RAG** — Hybrid retrieval (vector + BM25) with reranker re-ranking and per-user KB isolation
+- **🔍 Deep Search** — Perplexity-style pipeline: query planning → multi-query execution → content extraction → embedding recall → re-ranking → context compression → citation tracing
+- **🖼️ Multimodal Analysis** — Image upload + PDF image extraction with Vision model analysis
+- **👤 User System** — JWT auth, email verification, password management
+- **🌐 i18n** — Chinese/English dynamic switching via Zustand, lazy-loaded locale bundles
+- **🌙 Dark Mode** — CSS variable-driven, instant global toggle
 
 ---
 
-## 快速开始
+## 🏗️ Tech Stack
 
-### 环境要求
+| Layer | Technologies |
+|-------|-------------|
+| **Backend** | Python 3.11+ · FastAPI · LangChain · ChromaDB · SQLAlchemy · MySQL · Redis · httpx · PyMuPDF |
+| **Frontend** | React 18 · TypeScript · Vite · TailwindCSS · Zustand · Framer Motion · react-markdown |
+| **AI / Search** | SiliconFlow API · Tavily Search API · BAAI/bge-reranker-v2-m3 · trafilatura |
 
-- Python 3.11+ · Node.js 18+ · MySQL 8.0+ · Redis 6.0+（可选）
+---
 
-### 1. 后端
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.11+ · Node.js 18+ · MySQL 8.0+ · Redis 6.0+ (optional)
+
+### Backend
 
 ```bash
-conda create -n RAG python=3.11 && conda activate RAG
+# Create conda env and install dependencies
+conda create -n RAG python=3.11 -y && conda activate RAG
 pip install -r requirements.txt
-cp .env.example .env   # 编辑 .env 填入 API Key 和数据库配置
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys and database credentials
+
+# Initialize database and start server
 python scripts/init_database.py
-python main.py          # 启动 http://localhost:8000
+python main.py                    # → http://localhost:8000
 ```
 
-### 2. 前端
+### Frontend
 
 ```bash
-cd frontend && npm install && npm run dev   # 启动 http://localhost:5173
+cd frontend
+npm install
+npm run dev                       # → http://localhost:5173
 ```
 
-### 3. 配置要点
+### Required Config
 
-`.env` 中必须配置：
+| Variable | Description |
+|----------|------------|
+| `API_KEY` | SiliconFlow API key (LLM + Embedding + Rerank) |
+| `TAVILY_API_KEY` | Tavily search API key (required for web search) |
+| `MYSQL_HOST` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` | MySQL connection |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` | QQ SMTP (email verification) |
 
-| 变量 | 说明 |
-|------|------|
-| `API_KEY` | 硅基流动 API Key（LLM + Embedding + Rerank 共用） |
-| `TAVILY_API_KEY` | Tavily 搜索 API Key（联网搜索必需） |
-| `MYSQL_HOST/USER/PASSWORD/DATABASE` | MySQL 数据库连接 |
-| `SMTP_HOST/USER/PASSWORD` | QQ 邮箱 SMTP（邮箱验证码） |
+<details>
+<summary>Optional Config</summary>
 
-`.env` 可选配置：
+| Variable | Description |
+|----------|------------|
+| `LLM_ENABLE_THINKING` | Set `false` to disable DeepSeek thinking mode |
+| `REDIS_HOST` | Redis cache (falls back to in-memory if empty) |
 
-| 变量 | 说明 |
-|------|------|
-| `LLM_ENABLE_THINKING` | `false` 关闭 DeepSeek 深度思考模式 |
-| `REDIS_HOST` | Redis 缓存（留空则仅用内存缓存） |
+</details>
 
 ---
 
-## 项目结构
+## 📁 Project Structure
 
 ```
-├── src/                         # 后端
-│   ├── api/                     # FastAPI 路由
-│   │   ├── chat_routes.py       # 聊天 SSE 流式端点
-│   │   ├── auth_routes.py       # 认证（注册/登录/验证码）
-│   │   ├── routes.py            # 文档管理 + RAG
-│   │   ├── settings_routes.py   # LLM 配置 + 预设
-│   │   └── search_routes.py     # 深度搜索端点
-│   ├── search/                  # 深度搜索模块（类 Perplexity）
-│   │   ├── planner.py           # LLM 查询拆解
-│   │   ├── tavily_engine.py     # 原生 httpx 异步搜索
-│   │   ├── extractor.py         # trafilatura 正文抽取
-│   │   ├── chunker.py           # 中文友好文本分块
-│   │   ├── retriever.py         # Embedding 相似度召回
-│   │   ├── reranker.py          # 硅基流动 Rerank API
-│   │   ├── compressor.py        # token budget 压缩
-│   │   ├── citation.py          # [1][2] 引用溯源
-│   │   └── pipeline.py          # 全异步流水线编排
-│   ├── rag/                     # RAG 模块
-│   ├── core/                    # LLM/Embedding 提供者
-│   ├── database/                # ChromaDB + MySQL 管理
-│   ├── tools/                   # Web 搜索工具
-│   ├── auth/                    # JWT 认证
-│   └── utils/                   # 配置、URL 规范化、邮件
-├── frontend/                    # React 前端
+Geo-Agent/
+├── src/                            # Backend
+│   ├── api/                        # FastAPI routes
+│   │   ├── chat_routes.py          # Chat SSE streaming endpoint
+│   │   ├── auth_routes.py          # Auth (register/login/verification)
+│   │   ├── routes.py               # Document management + RAG
+│   │   ├── settings_routes.py      # LLM config + presets
+│   │   └── search_routes.py        # Deep search endpoint
+│   ├── search/                     # Deep search module (Perplexity-style)
+│   │   ├── planner.py              # LLM query decomposition
+│   │   ├── tavily_engine.py        # Native httpx async search
+│   │   ├── extractor.py            # trafilatura content extraction
+│   │   ├── chunker.py              # Chinese-aware text chunking
+│   │   ├── retriever.py            # Embedding similarity recall
+│   │   ├── reranker.py             # SiliconFlow rerank API
+│   │   ├── compressor.py           # Token budget compression
+│   │   ├── citation.py             # [1][2] citation tracing
+│   │   └── pipeline.py             # Full async pipeline orchestration
+│   ├── rag/                        # RAG module
+│   │   ├── retriever.py            # Hybrid retrieval (MultiQuery optional)
+│   │   ├── reranker.py             # Reranker provider
+│   │   └── chain.py                # LCEL generation chain
+│   ├── core/                       # LLM / Embedding providers
+│   ├── database/                   # ChromaDB + MySQL management
+│   ├── tools/                      # Web search tools
+│   ├── auth/                       # JWT authentication
+│   └── utils/                      # Config, URL normalization, email
+├── frontend/                       # React frontend
 │   └── src/
-│       ├── pages/               # ChatPage / DocumentsPage / Login / Register
-│       ├── components/          # Layout / StreamingMessage / ThinkingWave
-│       ├── store/               # Zustand stores
-│       ├── i18n/                # 国际化（Zustand + 懒加载）
-│       └── services/            # API 客户端
-├── tests/                       # pytest 测试
-├── config.yaml                  # 全局配置
+│       ├── pages/                  # ChatPage / DocumentsPage / Login / Register
+│       ├── components/             # Layout / StreamingMessage / ThinkingWave
+│       ├── store/                  # Zustand stores (auth, chat, theme)
+│       ├── i18n/                   # i18n (Zustand + lazy loading)
+│       └── services/               # API client layer
+├── tests/                          # pytest test suite
+├── data/                           # Document images and static data
+├── scripts/                        # init_database, import_documents
+├── config.yaml                     # Global configuration
 ├── requirements.txt
-└── main.py                      # 启动入口
+├── LICENSE                         # MIT License
+└── main.py                         # Application entry point
 ```
 
 ---
 
-## API 端点速览
+## 📡 API Overview
 
-| 类别 | 端点 | 说明 |
-|------|------|------|
-| 认证 | `POST /api/auth/register` | 邮箱验证码注册 |
-| 认证 | `POST /api/auth/login` | 密码/验证码登录 |
-| 认证 | `POST /api/auth/send-verification-code` | 发送邮箱验证码 |
-| 聊天 | `POST /api/chat/stream` | SSE 流式对话 |
-| 深度搜索 | `POST /api/search/deep` | 深度搜索（规划→检索→重排→生成） |
-| 文档 | `POST /api/documents/upload-file` | 上传文档（PDF/Word/MD/TXT） |
-| 文档 | `POST /api/documents/upload-batch` | 批量上传 |
-| 文档 | `GET /api/documents/list` | 文档列表（用户隔离） |
-| 设置 | `GET/PUT /api/settings/llm-config` | LLM 配置管理 |
-| 设置 | `POST /api/settings/llm-config/test` | 连接测试 |
+| Category | Endpoint | Description |
+|----------|----------|-------------|
+| Auth | `POST /api/auth/register` | Register with email verification |
+| Auth | `POST /api/auth/login` | Login (password or verification code) |
+| Auth | `POST /api/auth/send-verification-code` | Send verification email |
+| Chat | `POST /api/chat/stream` | SSE streaming conversation |
+| Deep Search | `POST /api/search/deep` | Deep search (plan → retrieve → rerank → generate) |
+| Documents | `POST /api/documents/upload-file` | Upload document (PDF/Word/MD/TXT) |
+| Documents | `POST /api/documents/upload-batch` | Batch upload |
+| Documents | `GET /api/documents/list` | Document list (user-isolated) |
+| Settings | `GET/PUT /api/settings/llm-config` | LLM configuration |
+| Settings | `POST /api/settings/llm-config/test` | Connection test |
 
-完整 API 文档：启动后端后访问 `http://localhost:8000/docs`
+> Full Swagger docs available at `http://localhost:8000/docs` after starting the backend.
 
 ---
 
-## 开发命令
+## 🧑‍💻 Development
 
 ```bash
-# 后端
-python main.py                              # 开发服务器 :8000
-PYTHONPATH=. pytest tests/ -q               # 运行测试
-black . && flake8 .                         # 格式化 + Lint
+# Backend
+python main.py                         # Dev server at :8000
+PYTHONPATH=. pytest tests/ -q          # Run tests
+black . && flake8 .                    # Format + Lint
 
-# 前端
-cd frontend && npm run dev                  # 开发服务器 :5173
-cd frontend && npx tsc --noEmit             # TypeScript 类型检查
-cd frontend && npm run build                # 生产构建
+# Frontend
+cd frontend && npm run dev             # Dev server at :5173
+cd frontend && npx tsc --noEmit        # TypeScript type-check
+cd frontend && npm run build           # Production build
 ```
 
 ---
 
-## 关键架构决策
+## 🧠 Architecture Decisions
 
-- **LLM/Embedding 提供者** — `create_*()` 工厂函数从 `config.yaml` + `.env` 读取配置，支持 `user_llm_config` 参数覆盖
-- **用户知识库隔离** — ChromaDB 集合名格式 `user_{id}_{name}`，所有查询过滤 `user_id`
-- **Reranker** — 优先使用硅基流动 `/v1/rerank` API（零本地 GPU），`rag.reranker_api: true`
-- **i18n** — Zustand store + 动态 `import()` 懒加载语言包，类型安全 `TranslationDict`，组件订阅 `language` state
-- **流式输出** — ChatPage 使用 RAF 批量化 SSE 事件 → `StreamingMessage` 实时 Markdown 渲染
-- **搜索** — Tavily 双轮策略（中文优先域名 → 全互联网）、智能时间窗检测、时效性加权、中文内容过滤
+- **Provider Pattern** — `create_*()` factory functions read from `config.yaml` + `.env`; override via `user_llm_config` param for per-user LLM settings
+- **User KB Isolation** — ChromaDB collection naming: `user_{id}_{name}`; all queries filter by `user_id`
+- **Reranker** — Prefers SiliconFlow `/v1/rerank` API (zero local GPU); fallback to local CrossEncoder
+- **i18n** — Zustand store with dynamic `import()` lazy loading; type-safe `TranslationDict`; components reactively subscribe to `language` state
+- **Streaming** — ChatPage uses RAF-batched SSE events → `StreamingMessage` for real-time Markdown rendering
+- **Web Search** — Tavily dual-pass: Chinese-preferred domains → full internet; smart time-range detection; recency boosting
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to open issues and pull requests.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center" id="chinese">
+  <sub>Built with ❤️ for geological literature research</sub>
+</p>
