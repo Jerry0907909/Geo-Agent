@@ -80,7 +80,7 @@ class WebEnhancedRAGRetriever(RAGRetriever):
         llm = self.llm
         if temperature is not None:
             from src.core.llm_provider import create_llm_provider
-            llm_provider = create_llm_provider(temperature=temperature, user_llm_config=user_llm_config if 'user_llm_config' in dir() else None)
+            llm_provider = create_llm_provider(temperature=temperature)
             llm = llm_provider.get_langchain_llm()
         
         # 6. 创建异步流式生成器
@@ -141,17 +141,15 @@ class WebEnhancedRAGRetriever(RAGRetriever):
 
 def create_web_enhanced_rag_retriever(
     collection_name: Optional[str] = None,
-    user_llm_config: Optional[dict] = None,
 ) -> WebEnhancedRAGRetriever:
     """创建 WebSearch 增强的 RAG 检索器
 
     Args:
         collection_name: 可选的知识库集合名称
-        user_llm_config: 用户的 LLM 配置（优先于全局配置）
     """
     from src.database.chroma_manager import create_chroma_manager
     from src.core.llm_provider import create_llm_provider
 
     vector_store = create_chroma_manager(collection_name=collection_name)
-    llm_provider = create_llm_provider(user_llm_config=user_llm_config)
+    llm_provider = create_llm_provider()
     return WebEnhancedRAGRetriever(vector_store=vector_store, llm_provider=llm_provider)

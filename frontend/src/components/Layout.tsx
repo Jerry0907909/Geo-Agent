@@ -291,11 +291,19 @@ export default function Layout() {
                 const Icon = item.icon
                 const isActive = location.pathname.startsWith(item.match)
                 return (
-                  <Button key={item.to} variant="ghost" className={cn("relative h-10 w-full overflow-hidden rounded-2xl px-3", !isSidebarOpen ? "justify-center px-0" : "justify-start")} asChild>
+                  <Button
+                    key={item.to}
+                    variant="ghost"
+                    className={cn(
+                      "relative h-10 w-full rounded-2xl border px-3",
+                      isActive
+                        ? "border-[#b7c8fe] bg-primary/10 dark:border-[#3c4f8d] dark:bg-[#1f2942]"
+                        : "border-transparent",
+                      !isSidebarOpen ? "justify-center px-0" : "justify-start",
+                    )}
+                    asChild
+                  >
                     <Link to={item.to}>
-                      {isActive && (
-                        <motion.span layoutId="sidebar-nav-active" transition={SOFT_SPRING} className="absolute inset-0 rounded-2xl border border-[#b7c8fe] bg-primary/10 dark:border-[#3c4f8d] dark:bg-[#1f2942]" />
-                      )}
                       <span className={cn("relative flex items-center gap-2", !isSidebarOpen && "justify-center", isActive ? "text-primary" : "text-foreground")}>
                         <Icon className="h-4 w-4 shrink-0" />{isSidebarOpen && <span>{t(item.labelKey)}</span>}
                       </span>
@@ -307,7 +315,7 @@ export default function Layout() {
 
             <div className="mt-4 flex min-h-0 flex-1 flex-col">
               {isSidebarOpen && (
-                <div className="flex items-center justify-between px-4 pb-2">
+                <div className="flex items-center justify-between px-3 pb-2">
                   <p className="text-xs text-muted-foreground">{t("nav.history")}</p>
                   {conversations.length > 0 && (
                     <div className="flex items-center gap-1">
@@ -329,29 +337,35 @@ export default function Layout() {
                   )}
                 </div>
               )}
-              <ScrollArea className="min-h-0 flex-1 px-2">
+              <ScrollArea className="min-h-0 flex-1">
                 {groupedConversations.length === 0 ? (
-                  <div className={cn("px-2 py-6 text-center text-xs text-muted-foreground", !isSidebarOpen && "px-0")}>{isSidebarOpen ? t("nav.noHistory") : "—"}</div>
+                  <div className={cn("px-3 py-6 text-center text-xs text-muted-foreground", !isSidebarOpen && "px-0")}>{isSidebarOpen ? t("nav.noHistory") : "—"}</div>
                 ) : (
-                  <div className="space-y-4 pb-4">
+                  <div className="space-y-4 px-3 pb-4">
                     {groupedConversations.map((group) => (
                       <div key={group.label} className="space-y-1">
-                        {isSidebarOpen && <p className="px-2 text-[11px] text-muted-foreground">{group.label}</p>}
+                        {isSidebarOpen && <p className="text-[11px] text-muted-foreground">{group.label}</p>}
                         {group.items.map((conversation) => {
                           const isActive = currentConversationId === conversation.id && !isSelectionMode
                           const isSelected = isSelectionMode && selectedConversationIds.has(conversation.id)
+                          const isHighlighted = isActive || isSelected
                           return (
                             <motion.div key={conversation.id} layout="position" transition={SOFT_SPRING}
                               onClick={() => handleConversationClick(conversation.id)}
                               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleConversationClick(conversation.id) } }}
                               role="button" tabIndex={0}
-                              className={cn("group relative flex w-full items-center gap-2 rounded-2xl border border-transparent px-3 py-2 text-left text-sm transition-colors hover:bg-secondary", isSelected && "border-[#b7c8fe] bg-primary/10", !isSidebarOpen && "justify-center px-0")}
+                              className={cn(
+                                "group relative flex w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm transition-colors hover:bg-secondary",
+                                isHighlighted
+                                  ? "border-[#dbe5ff] bg-[#f4f7ff] dark:border-[#33436f] dark:bg-[#1a2237]"
+                                  : "border-transparent",
+                                !isSidebarOpen && "justify-center px-0",
+                              )}
                               title={conversation.title || t("nav.newChat")}>
-                              {isActive && <motion.span layoutId="conversation-active" transition={SOFT_SPRING} className="absolute inset-0 rounded-2xl border border-[#b7c8fe] bg-primary/10 dark:border-[#3c4f8d] dark:bg-[#1f2942]" />}
                               <div className={cn("relative flex w-full items-center gap-2", !isSidebarOpen && "justify-center")}>
                                 {isSelectionMode ? (isSelected ? <CheckSquare className="h-4 w-4 shrink-0 text-primary" /> : <Square className="h-4 w-4 shrink-0 text-muted-foreground" />) : <MessageCircle className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />}
                                 {isSidebarOpen && (<>
-                                  <span className={cn("min-w-0 flex-1 truncate", isActive && "text-primary")}>{conversationTitle(conversation.title)}</span>
+                                  <span className={cn("min-w-0 flex-1 truncate", isActive && "text-foreground font-medium")}>{conversationTitle(conversation.title)}</span>
                                   {!isSelectionMode && <button type="button" onClick={(e) => handleDeleteChat(e, conversation.id)} className="opacity-0 transition-opacity group-hover:opacity-100" title={t("nav.deleteConversationTitle")}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></button>}
                                 </>)}
                               </div>

@@ -246,24 +246,16 @@ class VisionProvider:
                 yield chunk.content
 
 
-def create_vision_provider(user_llm_config: Optional[dict] = None) -> VisionProvider:
-    """创建视觉模型提供者实例（优先使用用户配置）"""
-    from src.utils.llm_url import normalize_chat_endpoint
+def create_vision_provider() -> VisionProvider:
+    """创建视觉模型提供者实例（使用 config.yaml 全局配置）"""
     config = get_config()
     llm_cfg = config.get_llm_config()
 
-    if user_llm_config and user_llm_config.get("api_key") and user_llm_config.get("base_url"):
-        api_key = user_llm_config["api_key"]
-        api_endpoint = normalize_chat_endpoint(user_llm_config["base_url"])
-        model_name = user_llm_config.get("vision_model_name") or user_llm_config.get("model_name", llm_cfg.get("model_name", ""))
-        temperature = user_llm_config.get("temperature", 0.7)
-        max_tokens = user_llm_config.get("max_tokens", 2048)
-    else:
-        api_key = llm_cfg.get("api_key")
-        api_endpoint = llm_cfg.get("api_endpoint")
-        model_name = llm_cfg.get("vision_model_name") or llm_cfg.get("model_name")
-        temperature = llm_cfg.get("temperature", 0.7)
-        max_tokens = llm_cfg.get("max_tokens", 2048)
+    api_key = llm_cfg.get("api_key")
+    api_endpoint = llm_cfg.get("api_endpoint")
+    model_name = llm_cfg.get("vision_model_name") or llm_cfg.get("model_name")
+    temperature = llm_cfg.get("temperature", 0.7)
+    max_tokens = llm_cfg.get("max_tokens", 2048)
 
     timeout = llm_cfg.get("request_timeout", 120)
     use_env_proxy = llm_cfg.get("use_env_proxy", False)

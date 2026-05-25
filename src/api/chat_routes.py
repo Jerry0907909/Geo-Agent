@@ -35,7 +35,6 @@ from src.core.prompts import (
     get_vision_prompt,
     build_chat_prompt_with_context,
 )
-from src.utils.user_llm import load_user_llm_config
 from src.utils.text_lang import conversation_language
 
 logger = logging.getLogger(__name__)
@@ -465,15 +464,11 @@ async def send_message(
         reasoning_steps = []
         
         if request.mode == "rag":
-            # RAG模式 - 文献检索增强生成（用户级隔离 + 用户 LLM 配置）
-            user_llm = load_user_llm_config(db, current_user.id)
-            if user_llm and request.model_name:
-                user_llm = dict(user_llm)
-                user_llm["model_name"] = request.model_name
-            rag_chain = create_rag_chain(user_llm_config=user_llm)
+            # RAG模式 - 文献检索增强生成
+            rag_chain = create_rag_chain()
             result = rag_chain.query(request.message, top_k=request.top_k, user_id=str(current_user.id))
             answer = result.answer
-            
+
             # 提取来源
             if request.return_sources and result.context_documents:
                 for doc in result.context_documents:
@@ -484,12 +479,8 @@ async def send_message(
                     })
         
         else:
-            # 普通对话模式 - 直接使用LLM（用户配置）
-            user_llm = load_user_llm_config(db, current_user.id)
-            if user_llm and request.model_name:
-                user_llm = dict(user_llm)
-                user_llm["model_name"] = request.model_name
-            llm = create_llm_provider(enable_thinking=False, user_llm_config=user_llm)
+            # 普通对话模式 - 直接使用LLM
+            llm = create_llm_provider(enable_thinking=False)
             
             # 构建带有历史上下文的提示
             system_prompt = get_chat_prompt()
@@ -596,12 +587,8 @@ async def quick_query(
         reasoning_steps = []
         
         if request.mode == "rag":
-            # RAG模式（用户级隔离 + 用户 LLM 配置）
-            user_llm = load_user_llm_config(db, current_user.id) if current_user else None
-            if user_llm and current_user and request.model_name:
-                user_llm = dict(user_llm)
-                user_llm["model_name"] = request.model_name
-            rag_chain = create_rag_chain(user_llm_config=user_llm)
+            # RAG模式
+            rag_chain = create_rag_chain()
             uid = str(current_user.id) if current_user else None
             result = rag_chain.query(request.message, top_k=request.top_k, user_id=uid)
             answer = result.answer
@@ -614,12 +601,8 @@ async def quick_query(
                     })
         
         else:
-            # 普通对话模式（用户配置）
-            user_llm = load_user_llm_config(db, current_user.id) if current_user else None
-            if user_llm and current_user and request.model_name:
-                user_llm = dict(user_llm)
-                user_llm["model_name"] = request.model_name
-            llm = create_llm_provider(enable_thinking=False, user_llm_config=user_llm)
+            # 普通对话模式
+            llm = create_llm_provider(enable_thinking=False)
             system_prompt = get_chat_prompt()
             prompt = f"{system_prompt}\n\n用户问题: {request.message}\n\n请回答:"
             answer = llm.generate(prompt)
@@ -675,8 +658,7 @@ async def generate_follow_up_questions(
     基于用户问题和AI回答，生成相关的后续问题建议。
     """
     try:
-        user_llm = load_user_llm_config(db, current_user.id)
-        llm = create_llm_provider(enable_thinking=False, user_llm_config=user_llm)
+        llm = create_llm_provider(enable_thinking=False)
 
         lang = (request.language or "").strip().lower()
         if lang in ("zh", "zh-cn", "chinese"):
@@ -815,47 +797,10 @@ async def stream_chat(
         full_response = ""
         sources = []
 
-        # 加载用户的 LLM 配置
-        user_llm_config = None
-        stream_db_llm = get_session_local()()
-        try:
-            user_llm_config = load_user_llm_config(stream_db_llm, current_user_id)
-            # 如果前端请求指定了 model_name，优先使用（覆盖 DB 配置）
-            if user_llm_config and request.model_name:
-                user_llm_config = dict(user_llm_config)
-                user_llm_config["model_name"] = request.model_name
-                logger.info(
-                    "[Stream] 前端指定 model_name=%s，已覆盖 DB 配置",
-                    request.model_name,
-                )
-            if user_llm_config:
-                logger.info(
-                    "[Stream] 使用用户 LLM: provider=%s model=%s base_url=%s",
-                    user_llm_config.get("provider"),
-                    user_llm_config.get("model_name"),
-                    user_llm_config.get("base_url"),
-                )
-            else:
-                logger.warning(
-                    "[Stream] 未加载到用户 LLM 配置 (user_id=%s)，将回退 config.yaml",
-                    current_user_id,
-                )
-                # 仅在没有配置或需要提示时告知前端
-        except Exception:
-            logger.exception("[Stream] 加载用户 LLM 配置失败 (user_id=%s)", current_user_id)
-        finally:
-            stream_db_llm.close()
-
         try:
             # 发送会话信息
             yield f"data: {json.dumps({'type': 'info', 'conversation_id': conversation_id}, ensure_ascii=False)}\n\n"
 
-            # 提示用户当前使用的模型来源
-            if user_llm_config and user_llm_config.get("provider"):
-                provider = user_llm_config.get("provider", "")
-                model = user_llm_config.get("model_name", "")
-                yield f"data: {json.dumps({'type': 'status', 'message': f'当前模型: {provider} / {model}'}, ensure_ascii=False)}\n\n"
-            
             if request.mode == "chat":
                 # 普通对话模式 - 流式输出
                 
@@ -871,7 +816,7 @@ async def stream_chat(
                         from src.core.vision_provider import create_vision_provider
                         import base64
                         
-                        vision_provider = create_vision_provider(user_llm_config=user_llm_config)
+                        vision_provider = create_vision_provider()
 
                         # 解码图像
                         image_data = base64.b64decode(request.image_base64)
@@ -941,7 +886,7 @@ async def stream_chat(
                     
                     # 使用默认提示词
                     system_prompt = get_chat_prompt()
-                    llm = create_llm_provider(enable_thinking=False, user_llm_config=user_llm_config)
+                    llm = create_llm_provider(enable_thinking=False)
                     
                     if web_context:
                         system_prompt += f"\n\n参考网络信息：\n{web_context}\n\n请基于上述网络信息回答问题，并用【来源X】标注引用。"
@@ -983,13 +928,9 @@ async def stream_chat(
                 from src.rag.web_enhanced_retriever import create_web_enhanced_rag_retriever
                 from src.tools.web_search import create_web_search_tool
 
-                kb_retriever = create_web_enhanced_rag_retriever(
-                    user_llm_config=user_llm_config
-                )
+                kb_retriever = create_web_enhanced_rag_retriever()
                 web_tool = create_web_search_tool()
-                llm = create_llm_provider(
-                    enable_thinking=False, user_llm_config=user_llm_config
-                )
+                llm = create_llm_provider(enable_thinking=False)
 
                 orchestrator = create_search_orchestrator(
                     kb_retriever=kb_retriever,
@@ -1092,7 +1033,7 @@ async def stream_chat(
                         from src.core.vision_provider import create_vision_provider
                         import base64
                         
-                        vision_provider = create_vision_provider(user_llm_config=user_llm_config)
+                        vision_provider = create_vision_provider()
                         
                         # 构建文本上下文
                         doc_context = "\n\n".join([

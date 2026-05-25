@@ -303,8 +303,8 @@ class RAGRetriever:
         })
 
 
-def create_rag_retriever(user_llm_config: Optional[dict] = None) -> RAGRetriever:
+def create_rag_retriever() -> RAGRetriever:
     """根据全局配置创建默认 RAGRetriever 实例"""
     vector_store = create_chroma_manager()
-    llm_provider = create_llm_provider(user_llm_config=user_llm_config)
+    llm_provider = create_llm_provider()
     return RAGRetriever(vector_store=vector_store, llm_provider=llm_provider)

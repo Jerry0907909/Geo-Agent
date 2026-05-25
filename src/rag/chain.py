@@ -98,11 +98,11 @@ class RAGChain:
         return self.retriever.run(question=question, top_k=top_k, user_id=user_id)
 
 
-def create_rag_chain(user_llm_config: Optional[dict] = None) -> RAGChain:
+def create_rag_chain() -> RAGChain:
     """根据默认配置创建完整的 RAGChain"""
 
     vector_store = create_chroma_manager()
-    retriever = create_rag_retriever(user_llm_config=user_llm_config)
+    retriever = create_rag_retriever()
     return RAGChain(
         retriever=retriever,
         vector_store=vector_store,

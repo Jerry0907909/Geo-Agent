@@ -193,58 +193,23 @@ def create_llm_provider(
     temperature: float = None,
     *,
     enable_thinking: Optional[bool] = None,
-    user_llm_config: Optional[Dict[str, Any]] = None,
 ) -> LLMProvider:
-    """创建 LLMProvider 实例
-
-    优先使用用户的个人 LLM 配置（user_llm_config），
-    未配置时回退到 config.yaml 全局配置。
-
-    Args:
-        temperature: 可选的温度参数，覆盖默认值
-        enable_thinking: 可选，启用思考链
-        user_llm_config: 用户保存的 LLM 配置字典，包含:
-            provider, base_url, api_key, model_name, temperature, max_tokens
-    """
+    """创建 LLMProvider 实例（使用 config.yaml 全局配置）"""
     config = get_config()
     llm_cfg = config.get_llm_config()
 
-    # 用户配置优先
-    if user_llm_config and user_llm_config.get("api_key") and user_llm_config.get("base_url"):
-        from src.utils.llm_url import normalize_openai_base_url
-        api_key = user_llm_config["api_key"]
-        # 直接规范化为 /v1 级别，跳过 _ensure_chat_endpoint → _get_base_url 的往返
-        base_url = normalize_openai_base_url(user_llm_config["base_url"])
-        api_endpoint = base_url  # ChatOpenAI 内部会追加 /chat/completions
-        model_name = user_llm_config.get("model_name", llm_cfg.get("model_name", ""))
-        temp = temperature if temperature is not None else user_llm_config.get("temperature", 0.7)
-        max_tokens = user_llm_config.get("max_tokens", 2048)
-        timeout = llm_cfg.get("request_timeout", 60)
-        use_env_proxy = llm_cfg.get("use_env_proxy", False)
-        proxy_url = llm_cfg.get("proxy_url")
-        max_retries = llm_cfg.get("max_retries", 0)
-        logger.info(
-            "[LLM] 使用用户配置: provider=%s model=%s base_url=%s",
-            user_llm_config.get("provider"), model_name, base_url,
-        )
-    else:
-        # 回退到全局配置（常见于 llm_config 无 api_key 或未保存）
-        logger.warning(
-            "用户 LLM 配置未生效，回退全局配置 (user_llm=%s)",
-            "present" if user_llm_config else "none",
-        )
-        provider = llm_cfg.get("provider")
-        if provider != "siliconflow":
-            raise ValueError(f"不支持的 LLM provider: {provider}")
-        api_key = llm_cfg.get("api_key")
-        api_endpoint = llm_cfg.get("api_endpoint")
-        model_name = llm_cfg.get("model_name")
-        temp = temperature if temperature is not None else llm_cfg.get("temperature", 0.7)
-        max_tokens = llm_cfg.get("max_tokens", 2048)
-        timeout = llm_cfg.get("request_timeout", 60)
-        use_env_proxy = llm_cfg.get("use_env_proxy", False)
-        proxy_url = llm_cfg.get("proxy_url")
-        max_retries = llm_cfg.get("max_retries", 0)
+    provider = llm_cfg.get("provider")
+    if provider != "siliconflow":
+        raise ValueError(f"不支持的 LLM provider: {provider}")
+    api_key = llm_cfg.get("api_key")
+    api_endpoint = llm_cfg.get("api_endpoint")
+    model_name = llm_cfg.get("model_name")
+    temp = temperature if temperature is not None else llm_cfg.get("temperature", 0.7)
+    max_tokens = llm_cfg.get("max_tokens", 2048)
+    timeout = llm_cfg.get("request_timeout", 60)
+    use_env_proxy = llm_cfg.get("use_env_proxy", False)
+    proxy_url = llm_cfg.get("proxy_url")
+    max_retries = llm_cfg.get("max_retries", 0)
 
     if not api_key or not api_endpoint or not model_name:
         raise ValueError("LLM 配置不完整：缺少 api_key / api_endpoint / model_name")
